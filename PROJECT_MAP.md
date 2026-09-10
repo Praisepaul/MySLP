@@ -95,6 +95,7 @@ Files:
 - `lib/cms/services-repository.ts`
 - `app/api/admin/services/route.ts`
 - `components/admin/services/services-manager.tsx`
+- `components/admin/services/services-manager-v2.tsx`
 - `components/admin/services/services-list.tsx`
 - `components/admin/services/service-form.tsx`
 - `app/admin/services/page.tsx`
@@ -106,9 +107,9 @@ Files:
 
 Mongo collection: `cms_services`.
 
-`getServices()` uses the existing config as a one-time-safe fallback when Mongo has no records. `upsertService`, `disableService` and `deleteService` persist changes. Service disabling is soft-disable; existing appointment snapshots are not rewritten.
+`getServices()` uses the existing config as a one-time-safe fallback when Mongo has no records. `upsertService`, `setServiceActive`, `disableService` and `deleteService` persist changes. Service disabling is soft-disable; existing appointment snapshots are not rewritten. New service IDs are generated internally from the service name; therapists do not need to enter an ID.
 
-Public service preview, booking selection, booking creation, and rescheduling now consume the persisted service repository rather than the static service array.
+Public service preview, booking selection, booking creation, and rescheduling now consume the persisted service repository rather than the static service array. Server-to-client service props are explicitly serialized so Mongo `_id` values never cross the Client Component boundary.
 
 ## Phase 4 — Availability management
 **Implemented persisted CMS.**
@@ -117,10 +118,13 @@ Files:
 - `lib/cms/availability-repository.ts`
 - `app/api/admin/availability/route.ts`
 - `components/admin/availability/availability-manager.tsx`
+- `components/admin/availability/availability-manager-v2.tsx`
 - `components/admin/availability/availability-exception-form.tsx`
 - `components/admin/availability/availability-rules-list.tsx`
+- `components/admin/availability/availability-rules-list-v2.tsx`
 - `components/admin/availability/availability-rule-form.tsx`
 - `components/admin/availability/availability-exceptions-list.tsx`
+- `components/admin/availability/availability-exceptions-list-v2.tsx`
 - `app/admin/availability/page.tsx`
 - `lib/booking/public-availability-service.ts`
 - `lib/appointments/appointment-service.ts`
@@ -161,7 +165,7 @@ Public availability, appointment creation and appointment rescheduling now consu
 Remaining: day/week visual calendar, dedicated detail view, native availability-picker rescheduling UI, manual admin creation UI, richer operational controls/retry and real admin authentication.
 
 ## Phase 12 — Profile CMS
-**Implemented initial persisted CMS.** Mongo document: `site_settings`, `_id = therapist-profile`.
+**Implemented initial persisted CMS.** Mongo document: `site_settings`, `_id = therapist-profile`. Profile image is currently an external direct-image URL; the public hero safely falls back if the supplied URL is not a loadable image instead of crashing the page.
 
 ## Phase 13 — Booking settings CMS
 **Implemented initial persisted CMS + runtime enforcement.** Mongo document: `site_settings`, `_id = booking-settings`.
