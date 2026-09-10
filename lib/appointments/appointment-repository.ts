@@ -118,7 +118,7 @@ export function toAppointmentPublicView(appointment: AppointmentDocument): Appoi
   };
 }
 
-export async function cancelAppointment(confirmationToken: string) {
+export async function cancelAppointment(confirmationToken: string): Promise<AppointmentDocument | null> {
   const client = await getMongoClient();
   const db = await getMongoDb();
   const now = new Date();
