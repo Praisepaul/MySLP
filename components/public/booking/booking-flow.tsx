@@ -145,10 +145,11 @@ export function BookingFlow() {
   }, [service, timezone, upcomingDates]);
 
   const currentAvailability = availability?.key === availabilityKey ? availability : null;
-  const dates = currentAvailability?.dates ?? upcomingDates;
+  const allDates = currentAvailability?.dates ?? upcomingDates;
   const slotsByDate = currentAvailability?.slotsByDate ?? {};
   const loading = Boolean(service && timezone && !currentAvailability);
   const availabilityError = currentAvailability?.error ?? null;
+  const dates = loading ? allDates : allDates.filter((date) => (slotsByDate[date] ?? []).length > 0);
 
   const effectiveSelectedDate = selectedDate && (slotsByDate[selectedDate] ?? []).length > 0
     ? selectedDate
