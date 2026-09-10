@@ -16,7 +16,7 @@ import {
   saveDiscoveredGoogleCalendarConflict,
 } from "@/lib/calendar/google-calendar-repository";
 import { createGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
-import { googleCalendarId } from "@/lib/calendar/google-calendar-types";
+import { googleCalendarConnectionId } from "@/lib/calendar/google-calendar-types";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 import type { AppointmentDocument } from "@/lib/appointments/appointment-types";
 
@@ -176,7 +176,7 @@ export async function createAppointment(input: {
       const learned = await Promise.all(
         calendarConflicts.map((interval) =>
           saveDiscoveredGoogleCalendarConflict({
-            calendarId: googleCalendarId,
+            calendarId: googleCalendarConnectionId,
             start: interval.start,
             end: interval.end,
           }),
