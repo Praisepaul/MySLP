@@ -2,10 +2,21 @@ import { randomUUID } from "crypto";
 import { MongoServerError } from "mongodb";
 import { bookingSettings } from "@/lib/config/booking-settings";
 import { services } from "@/lib/config/services";
-import { findActiveAppointmentsOverlapping, findAppointmentByIdempotencyKey, ensureAppointmentIndexes, bumpBookingLocksRevision, updateGoogleCalendarSyncStatus } from "@/lib/appointments/appointment-repository";
+import {
+  findActiveAppointmentsOverlapping,
+  findAppointmentByIdempotencyKey,
+  ensureAppointmentIndexes,
+  bumpBookingLocksRevision,
+  bumpPublicAvailabilityRevision,
+  updateGoogleCalendarSyncStatus,
+} from "@/lib/appointments/appointment-repository";
 import { getBookableSlots } from "@/lib/booking/booking-engine";
 import { getGoogleCalendarBusyIntervals } from "@/lib/calendar/google-calendar-service";
+import {
+  saveDiscoveredGoogleCalendarConflict,
+} from "@/lib/calendar/google-calendar-repository";
 import { createGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
+import { googleCalendarId } from "@/lib/calendar/google-calendar-types";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 import type { AppointmentDocument } from "@/lib/appointments/appointment-types";
 
@@ -38,7 +49,9 @@ function getDateInTimezone(date: Date, timezone: string) {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(date);
-  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  const values = Object.fromEntries(
+    parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
+  );
   return `${values.year}-${values.month}-${values.day}`;
 }
 
@@ -71,10 +84,18 @@ function validateRequest(input: {
   if (typeof input.name !== "string" || input.name.trim().length < 2 || input.name.trim().length > 120) {
     throw new AppointmentBookingError("INVALID_REQUEST", "Please enter your name.");
   }
-  if (typeof input.email !== "string" || input.email.trim().length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
+  if (
+    typeof input.email !== "string" ||
+    input.email.trim().length > 200 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())
+  ) {
     throw new AppointmentBookingError("INVALID_REQUEST", "Please enter a valid email address.");
   }
-  if (typeof input.idempotencyKey !== "string" || input.idempotencyKey.length < 16 || input.idempotencyKey.length > 100) {
+  if (
+    typeof input.idempotencyKey !== "string" ||
+    input.idempotencyKey.length < 16 ||
+    input.idempotencyKey.length > 100
+  ) {
     throw new AppointmentBookingError("INVALID_REQUEST", "Please try submitting the booking again.");
   }
 }
@@ -112,11 +133,13 @@ export async function createAppointment(input: {
   const conflictEnd = new Date(endAt.getTime() + bookingSettings.bufferAfterMinutes * 60 * 1000);
   const date = getDateInTimezone(startAt, input.timezone as string);
 
-  const appointmentConflicts = (await findActiveAppointmentsOverlapping(conflictStart, conflictEnd)).map((appointment) => ({
-    start: appointment.startAt,
-    end: appointment.endAt,
-    source: "appointment" as const,
-  }));
+  const appointmentConflicts = (await findActiveAppointmentsOverlapping(conflictStart, conflictEnd)).map(
+    (appointment) => ({
+      start: appointment.startAt,
+      end: appointment.endAt,
+      source: "appointment" as const,
+    }),
+  );
 
   let calendarConflicts;
   try {
@@ -149,7 +172,25 @@ export async function createAppointment(input: {
   );
 
   if (!requestedSlot) {
-    throw new AppointmentBookingError("UNAVAILABLE", "That time is no longer available. Please choose another slot.");
+    if (calendarConflicts?.length) {
+      const learned = await Promise.all(
+        calendarConflicts.map((interval) =>
+          saveDiscoveredGoogleCalendarConflict({
+            calendarId: googleCalendarId,
+            start: interval.start,
+            end: interval.end,
+          }),
+        ),
+      );
+      if (learned.some(Boolean)) {
+        await bumpPublicAvailabilityRevision();
+      }
+    }
+
+    throw new AppointmentBookingError(
+      "UNAVAILABLE",
+      "That time is no longer available. Please choose another slot.",
+    );
   }
 
   await ensureAppointmentIndexes();
@@ -189,7 +230,9 @@ export async function createAppointment(input: {
           confirmationToken,
         }));
         await db.collection(bookingLocksCollection).insertMany(locks, { session: transactionSession });
-        await db.collection<AppointmentDocument>(appointmentsCollection).insertOne(appointment, { session: transactionSession });
+        await db.collection<AppointmentDocument>(appointmentsCollection).insertOne(appointment, {
+          session: transactionSession,
+        });
         await bumpBookingLocksRevision(transactionSession);
       }),
     );
@@ -197,7 +240,10 @@ export async function createAppointment(input: {
     if (error instanceof MongoServerError && error.code === 11000) {
       const duplicateRequest = await findAppointmentByIdempotencyKey(input.idempotencyKey as string);
       if (duplicateRequest) return duplicateRequest;
-      throw new AppointmentBookingError("UNAVAILABLE", "That time was just booked by someone else. Please choose another slot.");
+      throw new AppointmentBookingError(
+        "UNAVAILABLE",
+        "That time was just booked by someone else. Please choose another slot.",
+      );
     }
     throw new AppointmentBookingError("DATABASE", "We couldn't save the appointment. Please try again.");
   }
