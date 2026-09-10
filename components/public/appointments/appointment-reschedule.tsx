@@ -8,6 +8,7 @@ import type { BookableSlot } from "@/lib/booking/slot-types";
 import type { Service } from "@/lib/config/services";
 
 interface AppointmentRescheduleProps { appointment: AppointmentPublicView; service: Service; }
+type AvailabilitySlotResponse = { start: string; end: string };
 
 function getDateStrings(timezone: string) {
   const dates: string[] = [];
@@ -38,8 +39,12 @@ export function AppointmentReschedule({ appointment, service }: AppointmentResch
       const response = await fetch("/api/availability", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceId: service.id, timezone, dates: dateRange }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "We couldn't check availability.");
-      setDates(data.dates);
-      setSlotsByDate(Object.fromEntries(Object.entries(data.slotsByDate).map(([date, slots]) => [date, (slots as Array<{ start: string; end: string }>).map((slot) => ({ ...slot, start: new Date(slot.start), end: new Date(slot.end) }))])));
+      const nextSlotsByDate: Record<string, BookableSlot[]> = {};
+      Object.entries(data.slotsByDate as Record<string, AvailabilitySlotResponse[]>).forEach(([date, slots]) => {
+        nextSlotsByDate[date] = slots.map((slot) => ({ start: new Date(slot.start), end: new Date(slot.end) }));
+      });
+      setDates(data.dates as string[]);
+      setSlotsByDate(nextSlotsByDate);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "We couldn't check availability. Please try again.");
     } finally {
@@ -47,7 +52,10 @@ export function AppointmentReschedule({ appointment, service }: AppointmentResch
     }
   }, [dateRange, service.id, timezone]);
 
-  useEffect(() => { void loadAvailability(); }, [loadAvailability]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadAvailability(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadAvailability]);
 
   async function handleReschedule() {
     if (!selectedSlot || saving) return;
