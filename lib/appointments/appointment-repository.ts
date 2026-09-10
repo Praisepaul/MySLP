@@ -73,11 +73,12 @@ export async function updateGoogleCalendarSyncStatus(input: {
     "googleCalendar.lastSyncedAt": now,
   };
   if (input.eventId) set["googleCalendar.eventId"] = input.eventId;
+  const update: { $set: Record<string, unknown>; $unset?: Record<string, ""> } = { $set: set };
   if (input.error) set["googleCalendar.lastSyncError"] = input.error;
-  else set["googleCalendar.lastSyncError"] = undefined;
+  else update.$unset = { "googleCalendar.lastSyncError": "" };
   await db.collection<AppointmentDocument>(appointmentsCollection).updateOne(
     { confirmationToken },
-    { $set: set },
+    update,
   );
 }
 
