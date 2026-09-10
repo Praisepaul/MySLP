@@ -152,24 +152,29 @@ export async function createAppointment(input: {
   return appointment;
 }
 
-export async function rescheduleAppointment(input: { confirmationToken: string; startAt: unknown }) {
+export async function rescheduleAppointment(input: { confirmationToken: string; startAt: unknown; timezone?: unknown }) {
   if (!input.confirmationToken || input.confirmationToken.length > 100 || typeof input.startAt !== "string") throw new AppointmentBookingError("INVALID_REQUEST", "Please choose a valid appointment time.");
   const appointment = await findAppointmentByToken(input.confirmationToken);
   if (!appointment || appointment.status !== "confirmed") throw new AppointmentBookingError("UNAVAILABLE", "This appointment is no longer available for rescheduling.");
   const now = new Date();
   if (appointment.startAt.getTime() <= now.getTime()) throw new AppointmentBookingError("UNAVAILABLE", "Past appointments cannot be rescheduled online.");
 
+  const timezone = typeof input.timezone === "string" ? input.timezone : appointment.timezone;
+  if (typeof timezone !== "string" || timezone.length > 100) throw new AppointmentBookingError("INVALID_REQUEST", "Please choose a valid timezone.");
+  assertTimezone(timezone);
+
   const startAt = new Date(input.startAt);
   if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= now.getTime()) throw new AppointmentBookingError("INVALID_REQUEST", "Please choose a valid future appointment time.");
   const endAt = new Date(startAt.getTime() + appointment.service.durationMinutes * 60 * 1000);
   const conflictStart = new Date(startAt.getTime() - bookingSettings.bufferBeforeMinutes * 60 * 1000);
   const conflictEnd = new Date(endAt.getTime() + bookingSettings.bufferAfterMinutes * 60 * 1000);
-  const date = getDateInTimezone(startAt, appointment.timezone);
+  const date = getDateInTimezone(startAt, timezone);
 
   const appointmentConflicts = (await findActiveAppointmentsOverlapping(conflictStart, conflictEnd)).filter((item) => item.confirmationToken !== appointment.confirmationToken).map((item) => ({ start: item.startAt, end: item.endAt, source: "appointment" as const }));
   const calendarConflicts = await getCalendarConflicts(conflictStart, conflictEnd);
   const conflicts = [...appointmentConflicts, ...(calendarConflicts ?? []).map((interval) => ({ start: interval.start, end: interval.end, source: "calendar" as const }))];
-  const requestedSlot = getBookableSlots({ date, service: appointment.service, timezone: appointment.timezone, conflicts, now }).slots.find((slot) => slot.start.getTime() === startAt.getTime() && slot.end.getTime() === endAt.getTime());
+  const conflictsWithoutCurrentAppointment = conflicts;
+  const requestedSlot = getBookableSlots({ date, service: appointment.service, timezone, conflicts: conflictsWithoutCurrentAppointment, now }).slots.find((slot) => slot.start.getTime() === startAt.getTime() && slot.end.getTime() === endAt.getTime());
   if (!requestedSlot) {
     await learnCalendarConflicts(calendarConflicts);
     throw new AppointmentBookingError("UNAVAILABLE", "That time is no longer available. Please choose another slot.");
@@ -177,22 +182,30 @@ export async function rescheduleAppointment(input: { confirmationToken: string; 
 
   const client = await getMongoClient();
   const db = await getMongoDb();
-  const updatedAppointment: AppointmentDocument = { ...appointment, startAt, endAt, updatedAt: new Date() };
+  const updatedAt = new Date();
   try {
     await client.withSession(async (session) => session.withTransaction(async (transactionSession) => {
       await db.collection(bookingLocksCollection).deleteMany({ confirmationToken: appointment.confirmationToken }, { session: transactionSession });
       const locks = getBookingBuckets(startAt, endAt).map((bucketStart) => ({ bucketStart, confirmationToken: appointment.confirmationToken }));
       await db.collection(bookingLocksCollection).insertMany(locks, { session: transactionSession });
-      await db.collection<AppointmentDocument>(appointmentsCollection).updateOne({ confirmationToken: appointment.confirmationToken, status: "confirmed" }, { $set: { startAt, endAt, updatedAt: updatedAppointment.updatedAt } }, { session: transactionSession });
+      const result = await db.collection<AppointmentDocument>(appointmentsCollection).updateOne(
+        { confirmationToken: appointment.confirmationToken, status: "confirmed", startAt: appointment.startAt, endAt: appointment.endAt },
+        { $set: { startAt, endAt, timezone, updatedAt } },
+        { session: transactionSession },
+      );
+      if (result.matchedCount !== 1) throw new AppointmentBookingError("UNAVAILABLE", "This appointment changed before it could be rescheduled. Please try again.");
       await bumpBookingLocksRevision(transactionSession);
     }));
   } catch (error) {
+    if (error instanceof AppointmentBookingError) throw error;
     if (error instanceof MongoServerError && error.code === 11000) throw new AppointmentBookingError("UNAVAILABLE", "That time was just booked by someone else. Please choose another slot.");
     throw new AppointmentBookingError("DATABASE", "We couldn't reschedule the appointment. Please try again.");
   }
 
+  const updatedAppointment: AppointmentDocument = { ...appointment, startAt, endAt, timezone, updatedAt };
+
   try {
-    if (updatedAppointment.googleCalendar?.eventId) {
+    if (appointment.googleCalendar?.eventId) {
       const meetJoinUrl = await updateGoogleCalendarAppointmentEvent(updatedAppointment);
       await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "synced", meetJoinUrl });
     } else {
