@@ -20,7 +20,11 @@ if (process.env.NODE_ENV !== "production") {
   globalMongo.__graceMongoClientPromise = clientPromise;
 }
 
+export async function getMongoClient(): Promise<MongoClient> {
+  return clientPromise;
+}
+
 export async function getMongoDb(): Promise<Db> {
-  const client = await clientPromise;
+  const client = await getMongoClient();
   return client.db(dbName);
 }
