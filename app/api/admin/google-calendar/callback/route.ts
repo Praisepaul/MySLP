@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     await requireGoogleCalendarSetupAccess();
 
     if (error) {
-      return NextResponse.redirect(new URL(`/admin/calendar?error=${encodeURIComponent(error)}`, url.origin));
+      return NextResponse.redirect(new URL("/admin/calendar?error=google_authorization_denied", url.origin));
     }
 
     if (!code || !state || !(await consumeGoogleCalendarOAuthState(state))) {
@@ -23,8 +23,7 @@ export async function GET(request: Request) {
 
     await connectGoogleCalendar(code);
     return NextResponse.redirect(new URL("/admin/calendar?connected=1", url.origin));
-  } catch (callbackError) {
-    const message = callbackError instanceof Error ? callbackError.message : "google_calendar_connection_failed";
-    return NextResponse.redirect(new URL(`/admin/calendar?error=${encodeURIComponent(message)}`, url.origin));
+  } catch {
+    return NextResponse.redirect(new URL("/admin/calendar?error=google_calendar_connection_failed", url.origin));
   }
 }
