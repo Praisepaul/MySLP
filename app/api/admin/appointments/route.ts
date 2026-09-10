@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { appointmentStatuses, type AppointmentStatus } from "@/lib/appointments/appointment-types";
+import { appointmentStatuses, type AppointmentDocument, type AppointmentStatus } from "@/lib/appointments/appointment-types";
 import { AppointmentBookingError, rescheduleAppointment } from "@/lib/appointments/appointment-service";
 import { cancelAppointment, findAdminAppointments, toAppointmentPublicView, updateAppointmentStatus, updateGoogleCalendarSyncStatus } from "@/lib/appointments/appointment-repository";
 import { deleteGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
@@ -8,7 +8,7 @@ import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function serialize(appointment: Awaited<ReturnType<typeof findAdminAppointments>>[number]) {
+function serialize(appointment: AppointmentDocument) {
   return {
     ...toAppointmentPublicView(appointment),
     id: appointment._id?.toHexString(),
