@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminShell } from "@/components/admin/layout/admin-shell";
+import { PageContainer } from "@/components/ui/page-container";
 
 const dashboardCards = [
   {
@@ -22,7 +23,7 @@ const dashboardCards = [
 export default function AdminPage() {
   return (
     <AdminShell>
-      <div className="mx-auto w-full max-w-7xl space-y-8">
+      <PageContainer className="space-y-8">
         <div>
           <p className="text-sm font-medium text-muted-foreground">
             Welcome back
@@ -73,7 +74,7 @@ export default function AdminPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     </AdminShell>
   );
 }
