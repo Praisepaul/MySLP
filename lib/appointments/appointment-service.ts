@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { MongoServerError } from "mongodb";
 import { bookingSettings } from "@/lib/config/booking-settings";
 import { services } from "@/lib/config/services";
-import { findActiveAppointmentsOverlapping, findAppointmentByIdempotencyKey, ensureAppointmentIndexes } from "@/lib/appointments/appointment-repository";
+import { findActiveAppointmentsOverlapping, findAppointmentByIdempotencyKey, ensureAppointmentIndexes, bumpBookingLocksRevision } from "@/lib/appointments/appointment-repository";
 import { getBookableSlots } from "@/lib/booking/booking-engine";
 import { getGoogleCalendarBusyIntervals } from "@/lib/calendar/google-calendar-service";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
@@ -188,6 +188,7 @@ export async function createAppointment(input: {
         }));
         await db.collection(bookingLocksCollection).insertMany(locks, { session: transactionSession });
         await db.collection<AppointmentDocument>(appointmentsCollection).insertOne(appointment, { session: transactionSession });
+        await bumpBookingLocksRevision(transactionSession);
       }),
     );
   } catch (error) {
