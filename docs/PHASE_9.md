@@ -2,7 +2,7 @@
 
 ## Goal
 
-Connect the therapist's Google Calendar to Grace Sessions so the application can use Google Calendar free/busy data as an external conflict source during final appointment validation.
+Connect the therapist's Google Calendar to Grace Sessions so the application can use Google Calendar free/busy data as an external conflict source during availability calculation and final appointment validation.
 
 ## Scope
 
@@ -12,7 +12,9 @@ Connect the therapist's Google Calendar to Grace Sessions so the application can
 - Primary Google Calendar is used for Phase 9.
 - Refresh token is encrypted before MongoDB storage.
 - Manual 7-day free/busy check from the admin Calendar page.
-- Booking revalidation checks Google Calendar conflicts when a connection exists.
+- Public booking availability is calculated server-side from availability rules plus live MongoDB appointments plus live Google Calendar free/busy data.
+- Public booking shows only currently bookable dates/times from that combined availability calculation.
+- Final booking validation still re-checks both MongoDB and Google Calendar to handle race conditions/stale availability.
 - MongoDB remains the application source of truth.
 - No cron jobs or background polling.
 
@@ -41,6 +43,21 @@ Connect the therapist's Google Calendar to Grace Sessions so the application can
   - `connectGoogleCalendar`
   - `getGoogleCalendarBusyIntervals`
   - `hasGoogleCalendarConnection`
+
+### Public availability
+
+- `lib/booking/public-availability-service.ts`
+  - `getPublicBookableSlots`
+  - server-side aggregation of MongoDB appointment conflicts and Google Calendar free/busy conflicts
+- `app/api/availability/route.ts`
+  - `POST`
+  - returns only bookable slot data; conflict sources are never exposed to patients
+- `components/public/booking/booking-flow.tsx`
+  - fetches live server-side availability
+  - shows only dates with at least one currently bookable time
+- `components/public/booking/booking-date-time-picker.tsx`
+  - presents only bookable times
+  - shows a clean empty state when no date/time is currently available
 
 ### Temporary setup access
 
@@ -72,7 +89,8 @@ This is intentionally a temporary setup gate. Full admin authentication/authoriz
 ### Booking integration
 
 - `lib/appointments/appointment-service.ts`
-  - final booking validation now includes Google Calendar busy intervals when connected.
+  - final booking validation includes MongoDB appointment conflicts and Google Calendar busy intervals when connected.
+  - the final re-check remains intentionally in place for concurrency/race-condition protection.
 
 ## MongoDB
 
@@ -126,10 +144,10 @@ For production, create the production OAuth client/redirect URI separately and u
 6. Click **Check calendar**.
 7. Verify a successful seven-day free/busy check.
 8. Create a real event in the therapist's primary Google Calendar.
-9. Attempt to book a Grace Sessions slot overlapping that event.
-10. Confirm Grace Sessions rejects the conflicting slot.
-11. Delete/move the Google Calendar event.
-12. Retry the booking and confirm it can proceed when the slot is otherwise available.
+9. Open `/book` and confirm the overlapping time is not offered to the patient.
+10. Delete/move the Google Calendar event.
+11. Refresh booking availability and confirm the time becomes available again when the application calendar is also free.
+12. Test a race condition by having another booking occupy a slot after it was displayed; the final booking request should still reject the slot rather than double-booking it.
 13. Test **Disconnect** and confirm the connection state clears.
 
 ## Security notes
@@ -140,6 +158,7 @@ For production, create the production OAuth client/redirect URI separately and u
 - The booking engine fails closed when a configured Google Calendar cannot be checked.
 - Only the minimum Phase 9 free/busy scope is requested.
 - No calendar event details are copied into the application database.
+- Public availability exposes only bookable slot timestamps; it does not expose patient appointments or Google Calendar event details.
 
 ## Deferred to later phases
 
