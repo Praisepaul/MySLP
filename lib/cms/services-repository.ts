@@ -62,12 +62,16 @@ export async function upsertService(service: Service): Promise<Service[]> {
   return saveServices(current);
 }
 
-export async function disableService(id: string): Promise<Service[]> {
+export async function setServiceActive(id: string, active: boolean): Promise<Service[]> {
   const current = await getServices();
   const service = current.find((item) => item.id === id);
   if (!service) throw new Error("Service not found.");
-  service.active = false;
+  service.active = active;
   return saveServices(current);
+}
+
+export async function disableService(id: string): Promise<Service[]> {
+  return setServiceActive(id, false);
 }
 
 export async function deleteService(id: string): Promise<Service[]> {
