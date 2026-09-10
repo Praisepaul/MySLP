@@ -54,7 +54,7 @@ export function AppointmentReschedule({ appointment, service }: AppointmentResch
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch(`/api/appointments/${appointment.confirmationToken}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ startAt: selectedSlot.start.toISOString() }) });
+      const response = await fetch(`/api/appointments/${appointment.confirmationToken}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ startAt: selectedSlot.start.toISOString(), timezone }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "We couldn't reschedule the appointment.");
       setDone(data.appointment as AppointmentPublicView);
