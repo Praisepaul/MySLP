@@ -151,7 +151,7 @@ Current reusable public profile components:
 - `components/public/profile/profile-about.tsx` — therapist introduction and
   credentials.
 - `components/public/profile/profile-services-preview.tsx` — services preview
-  placeholder and future CMS entry point.
+  and future CMS entry point.
 - `components/public/profile/profile-how-it-works.tsx` — three-step booking
   journey explanation.
 - `components/public/profile/profile-faq.tsx` — public FAQ presentation.
@@ -161,11 +161,45 @@ thin composition layer rather than becoming the home for profile content.
 
 ---
 
+# Services Architecture
+
+Phase 3 establishes the initial Services CMS structure.
+
+Scaffolded files:
+
+- `lib/config/services.ts` — service data/configuration source for the current
+  implementation and later database migration.
+- `components/admin/services/services-list.tsx` — admin service list UI.
+- `components/admin/services/service-form.tsx` — create/edit service form UI.
+- `components/public/services/service-card.tsx` — reusable public service card.
+- `app/admin/services/page.tsx` — Services admin page composition.
+
+These files are intentionally scaffolded before implementation so the local
+code remains under the developer's control. The implementation code for each
+file is added locally and committed from the developer's machine.
+
+The intended service model will support, at minimum:
+
+- service name
+- short description
+- detailed description
+- duration
+- optional price/display information
+- online/in-person availability
+- active/inactive status
+- display ordering
+
+The eventual MongoDB `services` collection should replace configuration data
+without requiring a redesign of the public component API.
+
+---
+
 # Admin Pages
 
 Implemented/under construction:
 
 - Dashboard
+- Services — Phase 3 scaffold
 
 Expected areas include:
 
@@ -205,7 +239,8 @@ Do not create unnecessary patient collections.
 - filename: `components/public/profile/profile-hero.tsx`
 - responsibility: Render the primary public therapist introduction, profile
   image area and booking/learn-more CTAs.
-- important dependencies: `therapistProfile`, Next.js `Link`, Lucide icons.
+- important dependencies: `therapistProfile`, Next.js `Link`, Lucide icons,
+  Next.js `Image`.
 
 ## `ProfileAbout`
 
@@ -218,7 +253,8 @@ Do not create unnecessary patient collections.
 - filename: `components/public/profile/profile-services-preview.tsx`
 - responsibility: Present the public services section and future service CMS
   entry point.
-- important dependencies: Next.js `Link`, Lucide icons.
+- important dependencies: Next.js `Link`, Lucide icons,
+  `therapistProfile`.
 
 ## `ProfileHowItWorks`
 
@@ -232,12 +268,31 @@ Do not create unnecessary patient collections.
 - responsibility: Render the public FAQ section.
 - important dependencies: shadcn `Card` components.
 
+## `ServicesList`
+
+- filename: `components/admin/services/services-list.tsx`
+- responsibility: Render the admin-facing collection of services with actions
+  for managing service records.
+- status: Scaffolded in Phase 3; implementation is added locally.
+
+## `ServiceForm`
+
+- filename: `components/admin/services/service-form.tsx`
+- responsibility: Provide the admin create/edit interface for service data.
+- status: Scaffolded in Phase 3; implementation is added locally.
+
+## `ServiceCard`
+
+- filename: `components/public/services/service-card.tsx`
+- responsibility: Render one reusable public-facing service presentation.
+- status: Scaffolded in Phase 3; implementation is added locally.
+
 ---
 
 # Important Components
 
-See `# Public Profile Architecture` above for the current public profile
-component inventory.
+See `# Public Profile Architecture` and `# Services Architecture` above for
+current public and Services component inventories.
 
 Existing application-shell components remain under:
 
@@ -366,6 +421,9 @@ Avoid collecting unnecessary clinical or personally sensitive information.
 - Update this file when architecture changes.
 - Keep Git commits focused and descriptive.
 - Do not introduce infrastructure without a clear requirement.
+- GitHub may be used to scaffold empty files and maintain the architecture map,
+  but implementation code is added and committed locally by the developer
+  unless explicitly requested otherwise.
 
 ---
 
@@ -385,3 +443,15 @@ Avoid collecting unnecessary clinical or personally sensitive information.
 - Composed the homepage from the new profile sections.
 - Kept `app/page.tsx` as a composition layer.
 - Established the public profile component inventory for the future Profile CMS.
+
+## Phase 2 Polish — Public Profile Refinement
+
+- Optimized the profile hero image implementation with Next.js `Image`.
+- Refined the public services preview into a three-card presentation.
+- Preserved existing public component filenames and functions.
+
+## Phase 3A — Services CMS Scaffold
+
+- Created empty implementation files for the Services admin/public structure.
+- Added the Services architecture and intended service model to this map.
+- Implementation code is intentionally being added locally by the developer.
