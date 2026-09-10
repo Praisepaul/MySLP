@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import type { ClientSession, ObjectId } from "mongodb";
 import type { AppointmentDocument, AppointmentPublicView } from "@/lib/appointments/appointment-types";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
@@ -51,7 +51,7 @@ export async function getBookingLocksRevision(): Promise<string> {
 
 export async function bumpBookingLocksRevision(session: ClientSession): Promise<string> {
   const db = await getMongoDb();
-  const revision = createHash("sha256").update(`${Date.now()}:${Math.random()}:${crypto.randomUUID()}`).digest("hex");
+  const revision = createHash("sha256").update(`${Date.now()}:${randomUUID()}`).digest("hex");
   await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).updateOne(
     { _id: availabilityRevisionId },
     { $set: { revision, updatedAt: new Date() } },
@@ -60,7 +60,7 @@ export async function bumpBookingLocksRevision(session: ClientSession): Promise<
   return revision;
 }
 
-export async function toAppointmentPublicView(appointment: AppointmentDocument): Promise<AppointmentPublicView> {
+export function toAppointmentPublicView(appointment: AppointmentDocument): AppointmentPublicView {
   return { confirmationToken: appointment.confirmationToken, status: appointment.status, service: appointment.service, patientName: appointment.patient.name, patientEmail: appointment.patient.email, startAt: appointment.startAt.toISOString(), endAt: appointment.endAt.toISOString(), timezone: appointment.timezone, createdAt: appointment.createdAt.toISOString(), ...(appointment.cancelledAt ? { cancelledAt: appointment.cancelledAt.toISOString() } : {}) };
 }
 
