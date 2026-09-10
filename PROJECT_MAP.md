@@ -100,13 +100,95 @@ Responsible for:
 - Calendar integration
 - Application settings
 
-## API
+## Booking Domain
+
+Phase 5 establishes a framework-independent booking calculation layer under `lib/booking/`.
+
+The booking domain currently consists of:
+
+- `lib/booking/slot-types.ts` — shared booking intervals, conflicts, windows, constraints, requests and generated slot types.
+- `lib/booking/time-utils.ts` — validated time parsing/formatting, date arithmetic and interval comparison helpers.
+- `lib/booking/availability-engine.ts` — converts recurring availability and date exceptions into UTC booking windows.
+- `lib/booking/conflict-engine.ts` — detects conflicts against appointment/calendar intervals while applying candidate buffers.
+- `lib/booking/slot-engine.ts` — generates duration-aware slots from availability windows, applies booking horizon/notice constraints and rejects conflicts.
+- `lib/booking/booking-engine.ts` — domain-facing integration boundary that combines booking configuration, availability configuration and supplied conflicts into bookable slots.
+
+Booking configuration lives in:
+
+- `lib/config/booking-settings.ts` — current booking constraints and enable/disable state, with domain validation.
+
+The current default configuration is intentionally a development baseline: 24-hour minimum notice, 60-day maximum advance, 30-minute slot interval, no pre-buffer and a 10-minute post-buffer. These values are configuration, not hard-coded product requirements.
+
+### Important booking functions
+
+- `parseTimeToMinutes` — validates and converts `HH:MM` values to minutes.
+- `formatMinutesToTime` — normalizes minute totals into `HH:MM`.
+- `addMinutes` — performs UTC-safe millisecond date arithmetic with validation.
+- `intervalsOverlap` — performs half-open interval overlap detection.
+- `calculateAvailabilityWindows` — derives applicable availability windows for a requested date.
+- `expandIntervalForConflictCheck` — expands a candidate interval by configured buffers.
+- `findBookingConflicts` — returns conflicts overlapping the buffered candidate.
+- `hasBookingConflict` — boolean conflict check.
+- `groupBookingConflictsBySource` — separates appointment and calendar conflicts.
+- `generateBookableSlots` — generates valid slots from availability, constraints and conflicts.
+- `filterBookableSlotsByConflicts` — re-checks generated slots against conflict data.
+- `validateBookingSettings` — validates configured booking constraints.
+- `getBookableSlots` — single domain-facing entry point for calculating bookable slots from application configuration and request-specific conflict data.
+
+### Booking calculation flow
+
+```text
+BookingSlotRequest
+      ↓
+bookingSettings
+      ↓
+availabilityRules + availabilityExceptions
+      ↓
+calculateAvailabilityWindows
+      ↓
+generateBookableSlots
+      ├── service duration
+      ├── minimum notice
+      ├── maximum advance
+      ├── slot interval
+      └── conflict detection + buffers
+      ↓
+SlotGenerationResult
+```
+
+The booking engine is deliberately not connected to MongoDB, API routes or Google Calendar yet. Those integrations will be added in later phases through the established boundary rather than leaking infrastructure concerns into the calculation functions.
+
+### Current booking architecture notes
+
+- `SlotGenerationRequest` still contains `availabilityWindows` and `exceptions` fields for future composition/testability. The current `generateBookableSlots` implementation derives availability from the supplied rules through `calculateAvailabilityWindows`; the integration boundary supplies the configured exceptions as part of the request shape.
+- Booking horizon currently applies to slot start time. This should remain an explicit product rule when booking settings become persistent.
+- Conflict checking currently expands the candidate slot by its configured before/after buffers. Future persisted appointment models may require a more explicit buffer policy if historical appointments also carry service-specific buffers.
+- Timezone and DST behavior should receive dedicated automated tests before production use, especially around daylight-saving transitions and when availability rules use a timezone different from the requested display timezone.
+- Current configuration data remains temporary architecture. MongoDB becomes the persistence source during later implementation phases.
+
+---
+
+# API
+
+To be defined during implementation. The booking domain should be consumed through a server-side API/action boundary once persistence is introduced.
+
+---
+
+# Database
 
 To be defined during implementation.
 
-## Database
+Expected collections may include:
 
-To be defined during implementation.
+- appointments
+- services
+- availability rules
+- availability exceptions
+- admin users
+- calendar connections
+- application settings
+
+Do not create unnecessary patient collections.
 
 ---
 
@@ -228,19 +310,6 @@ Important component/functions:
 
 The current availability UI is configuration architecture, not persistent CRUD. The Add/Edit controls and form callbacks establish the component API needed for later persistence. MongoDB writes, booking-time calculations and conflict detection belong to later phases.
 
-The future booking engine must combine:
-
-1. active weekly availability rules
-2. date-specific availability exceptions
-3. service duration
-4. appointment buffers
-5. minimum booking notice
-6. maximum advance booking window
-7. existing application appointments
-8. Google Calendar conflicts
-9. timezone/DST conversion
-10. final UTC appointment timestamps
-
 ---
 
 # Admin Pages
@@ -261,24 +330,6 @@ Expected areas include:
 - Booking settings
 - Integrations
 - Settings
-
----
-
-# Database Collections
-
-To be defined during implementation.
-
-Expected collections may include:
-
-- appointments
-- services
-- availability rules
-- availability exceptions
-- admin users
-- calendar connections
-- application settings
-
-Do not create unnecessary patient collections.
 
 ---
 
@@ -345,6 +396,26 @@ Do not create unnecessary patient collections.
 - filename: `app/admin/availability/page.tsx`
 - responsibility: Compose the Availability admin experience using the existing `AdminShell`, shared UI primitives and availability configuration.
 
+## `BookingSettings`
+
+- filename: `lib/config/booking-settings.ts`
+- responsibility: Store current booking constraints and booking enabled state.
+
+## `validateBookingSettings`
+
+- filename: `lib/config/booking-settings.ts`
+- responsibility: Validate minimum notice, maximum advance, slot interval and buffer settings.
+
+## `generateBookableSlots`
+
+- filename: `lib/booking/slot-engine.ts`
+- responsibility: Generate duration-aware, conflict-free slots within calculated availability and configured booking constraints.
+
+## `getBookableSlots`
+
+- filename: `lib/booking/booking-engine.ts`
+- responsibility: Provide the domain-facing booking calculation boundary using configured services, availability, exceptions and booking settings plus request-specific conflicts.
+
 ---
 
 # Important Components
@@ -361,7 +432,11 @@ Availability components remain under:
 
 - `components/admin/availability/`
 
-This keeps domain-specific admin UI grouped by feature while shared primitives remain reusable.
+Booking calculation code remains framework-independent under:
+
+- `lib/booking/`
+
+This keeps domain logic separate from future API, database and UI layers.
 
 ---
 
@@ -490,7 +565,7 @@ Avoid collecting unnecessary clinical or personally sensitive information.
 - Phase 2 — Therapist public profile — complete
 - Phase 3 — Services CMS — complete
 - Phase 4 — Availability management — complete
-- Phase 5 — Booking engine — next
+- Phase 5 — Booking engine — complete
 - Phase 6 — Patient booking experience
 - Phase 7 — Appointment management
 - Phase 8 — Patient calendar support
@@ -545,33 +620,59 @@ Avoid collecting unnecessary clinical or personally sensitive information.
 - Kept persistence intentionally deferred to the future data/booking layer.
 - Established the booking-engine inputs and timezone boundary for Phase 5.
 
+## Phase 5 — Booking Engine
+
+- Added `lib/booking/slot-types.ts` for shared booking domain types.
+- Added validated time/date helpers in `lib/booking/time-utils.ts`.
+- Added availability-window calculation in `lib/booking/availability-engine.ts`.
+- Added appointment/calendar conflict detection in `lib/booking/conflict-engine.ts`.
+- Added slot generation in `lib/booking/slot-engine.ts`.
+- Added booking constraints in `lib/config/booking-settings.ts`.
+- Added the domain-facing integration boundary in `lib/booking/booking-engine.ts`.
+- Kept MongoDB, API routes and external calendar integrations outside the booking calculation layer.
+- Validated each Phase 5 milestone with lint, TypeScript, build and diff checks.
+- Recorded explicit timezone/DST and future buffer-policy testing considerations before production.
+
 ---
 
-# Phase 4 Completion Ledger
+# Phase 5 Completion Ledger
 
 Status: **Complete**
 
-Created/added during Phase 4:
+Created/added during Phase 5:
 
-- `lib/config/availability.ts`
-- `components/admin/availability/availability-rules-list.tsx`
-- `components/admin/availability/availability-rule-form.tsx`
-- `components/admin/availability/availability-exceptions-list.tsx`
-- `app/admin/availability/page.tsx`
+- `lib/booking/slot-types.ts`
+- `lib/booking/time-utils.ts`
+- `lib/booking/availability-engine.ts`
+- `lib/booking/conflict-engine.ts`
+- `lib/booking/slot-engine.ts`
+- `lib/config/booking-settings.ts`
+- `lib/booking/booking-engine.ts`
 
-Key domain functions/components:
+Key domain functions/types:
 
-- `validateAvailabilityRule`
-- `validateAvailabilityException`
-- `isAvailabilityException`
-- `isFullDayException`
-- `isPartialDayException`
-- `AvailabilityRulesList`
-- `AvailabilityRuleForm`
-- `AvailabilityExceptionsList`
-- `AdminAvailabilityPage`
+- `BookingInterval`
+- `BookingConflict`
+- `BookingWindow`
+- `BookingConstraints`
+- `SlotGenerationRequest`
+- `BookableSlot`
+- `SlotGenerationResult`
+- `parseTimeToMinutes`
+- `formatMinutesToTime`
+- `addMinutes`
+- `intervalsOverlap`
+- `calculateAvailabilityWindows`
+- `expandIntervalForConflictCheck`
+- `findBookingConflicts`
+- `hasBookingConflict`
+- `groupBookingConflictsBySource`
+- `generateBookableSlots`
+- `filterBookableSlotsByConflicts`
+- `validateBookingSettings`
+- `getBookableSlots`
 
-Validation expected for the completed phase:
+Validation completed throughout Phase 5:
 
 ```text
 npm run lint
@@ -580,4 +681,4 @@ npm run build
 git diff --check
 ```
 
-Next phase: **Phase 5 — Booking Engine**.
+Next phase: **Phase 6 — Patient booking experience**.
