@@ -1,8 +1,8 @@
 import { findActiveAppointmentsOverlapping } from "@/lib/appointments/appointment-repository";
 import { getBookableSlotsWithConfiguration } from "@/lib/booking/booking-engine";
 import { getCachedGoogleCalendarBusyIntervals } from "@/lib/calendar/google-calendar-service";
-import { services } from "@/lib/config/services";
-import { availabilityExceptions, availabilityRules } from "@/lib/config/availability";
+import { getServices } from "@/lib/cms/services-repository";
+import { getAvailabilityConfiguration } from "@/lib/cms/availability-repository";
 import { getBookingSettings } from "@/lib/cms/site-settings-repository";
 import type { BookableSlot, BookingConflict } from "@/lib/booking/slot-types";
 
@@ -17,16 +17,17 @@ function validateRequest(input: PublicAvailabilityRequest): { serviceId: string;
 
 export async function getPublicBookableSlots(input: PublicAvailabilityRequest): Promise<PublicAvailabilityResult> {
   const { serviceId, timezone, dates } = validateRequest(input);
-  const service = services.find((item) => item.id === serviceId && item.active);
+  const [allServices, availability, settings] = await Promise.all([getServices(), getAvailabilityConfiguration(), getBookingSettings()]);
+  const service = allServices.find((item) => item.id === serviceId && item.active);
   if (!service) throw new Error("That service is no longer available.");
   const boundaries = dates.map(parseDateBoundary);
   const rangeStart = new Date(Math.min(...boundaries.map((date) => date.getTime())) - dayMilliseconds);
   const rangeEnd = new Date(Math.max(...boundaries.map((date) => date.getTime())) + 2 * dayMilliseconds);
-  const [appointments, calendarBusy, settings] = await Promise.all([findActiveAppointmentsOverlapping(rangeStart, rangeEnd), getCachedGoogleCalendarBusyIntervals(rangeStart, rangeEnd), getBookingSettings()]);
+  const [appointments, calendarBusy] = await Promise.all([findActiveAppointmentsOverlapping(rangeStart, rangeEnd), getCachedGoogleCalendarBusyIntervals(rangeStart, rangeEnd)]);
   const appointmentConflicts: BookingConflict[] = appointments.map((appointment) => ({ start: appointment.startAt, end: appointment.endAt, source: "appointment" }));
   const calendarConflicts: BookingConflict[] = (calendarBusy ?? []).map((interval) => ({ start: interval.start, end: interval.end, source: "calendar" }));
   const conflicts = [...appointmentConflicts, ...calendarConflicts];
-  const configuration = { settings, availabilityRules, availabilityExceptions };
+  const configuration = { settings, availabilityRules: availability.rules, availabilityExceptions: availability.exceptions };
   const slotsByDate = Object.fromEntries(dates.map((date) => [date, getBookableSlotsWithConfiguration({ date, service, timezone, conflicts, now: new Date() }, configuration).slots]));
   return { dates, slotsByDate };
 }
