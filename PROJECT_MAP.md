@@ -17,7 +17,7 @@ Grace Session Scheduler is a lightweight multilingual appointment scheduling app
 - Appointment timestamps stored in UTC.
 - User-facing dates/times are timezone-aware.
 - Patients are not required to authorize Google Calendar.
-- Patient calendar support will include Google Calendar, Apple Calendar, Outlook and `.ics`.
+- Patient calendar support includes Google Calendar, Apple Calendar, Outlook and `.ics`.
 - Admin must eventually manage content without source-code edits.
 - Premium, calm, responsive and accessibility-first UI.
 
@@ -44,7 +44,7 @@ Public UI
   ├── booking
   ├── appointment management
   ├── contact
-  └── patient calendar support (later)
+  └── patient calendar support
 
 Admin UI
   ├── dashboard
@@ -65,6 +65,10 @@ Appointment infrastructure: lib/appointments/ + lib/db/
   ├── server-side revalidation
   ├── idempotency
   └── transaction-backed booking locks
+
+Calendar support: lib/calendar/ + app/api/appointments/[confirmationToken]/ics/
+  ├── patient calendar composer links
+  └── token-protected ICS export
 ```
 
 # Public shell
@@ -208,7 +212,7 @@ SlotGenerationResult
 
 The domain remains framework-independent. Timezone/DST behavior still needs dedicated automated tests before production.
 
-# Patient booking — Phase 6 + Phase 7
+# Patient booking — Phase 6 complete
 
 Public booking route:
 
@@ -246,10 +250,8 @@ MongoDB transaction + booking locks
   ↓
 Confirmed appointment
   ↓
-Management link
+Management link + calendar options
 ```
-
-Phase 6 introduced the public flow and intentionally stopped before persistence. Phase 7 connects the final step to real appointment creation.
 
 # Appointments — Phase 7 complete
 
@@ -323,6 +325,36 @@ Required variables after setup:
 - `MONGODB_URI`
 - `MONGODB_DB` (defaults to `grace_sessions`)
 
+# Patient calendar support — Phase 8 complete
+
+Calendar helpers:
+
+- `lib/calendar/calendar-links.ts`
+  - `getGoogleCalendarUrl`
+  - `getOutlookCalendarUrl`
+
+ICS export:
+
+- `app/api/appointments/[confirmationToken]/ics/route.ts`
+  - `GET`
+  - Generates a token-protected `.ics` calendar event using UTC start/end timestamps.
+
+Public calendar UI:
+
+- `components/public/calendar/calendar-actions.tsx`
+  - `CalendarActions`
+
+Supported patient options:
+
+- Google Calendar
+- Outlook
+- Apple Calendar via `.ics`
+- `.ics` import/download for other compatible calendar applications
+
+Calendar actions are shown for confirmed appointments on both booking confirmation and appointment management surfaces. Cancelled appointments do not expose add-to-calendar actions.
+
+Calendar event data intentionally contains only scheduling information: service name, appointment start/end and a short description. No clinical information is included.
+
 # Admin shell
 
 - `components/admin/layout/admin-shell.tsx`
@@ -360,9 +392,9 @@ Therapist:
 
 Patient:
 
-- Google Calendar link support.
-- Apple Calendar support.
-- Outlook support.
+- Google Calendar composer link.
+- Outlook composer link.
+- Apple Calendar via `.ics`.
 - `.ics` export.
 
 # Timezone architecture
@@ -371,11 +403,12 @@ Patient:
 - Appointment timestamps are stored in UTC.
 - Public booking displays times in the selected/detected patient timezone.
 - Browser timezone is detected with manual override.
+- Calendar event start/end values are exported from UTC appointment timestamps.
 - DST/timezone edge cases require automated tests before production.
 
 # Privacy architecture
 
-This is a scheduling system, not an electronic health record. Collect only information required for appointment scheduling. Do not ask patients to submit clinical details during booking.
+This is a scheduling system, not an electronic health record. Collect only information required for appointment scheduling. Do not ask patients to submit clinical details during booking or place clinical details into calendar events.
 
 # UI/UX principles
 
@@ -406,8 +439,8 @@ This is a scheduling system, not an electronic health record. Collect only infor
 - Phase 4 — Availability management — complete
 - Phase 5 — Booking engine — complete
 - Phase 6 — Patient booking experience — complete
-- Phase 7 — Appointment management — implemented; local MongoDB validation pending
-- Phase 8 — Patient calendar support
+- Phase 7 — Appointment management — complete; locally validated with MongoDB Atlas
+- Phase 8 — Patient calendar support — complete; local validation next
 - Phase 9 — Google Calendar integration
 - Phase 10 — Google Meet
 - Phase 11 — Admin appointment management
@@ -423,7 +456,7 @@ This is a scheduling system, not an electronic health record. Collect only infor
 
 # Completion ledger — Phase 7
 
-Status: **Implemented — validation pending**
+Status: **Complete — locally validated**
 
 Created:
 
@@ -463,6 +496,45 @@ Important new UI components:
 - `BookingConfirmation`
 - `AppointmentManagement`
 
-Validation limitation:
+Validation:
 
-The GitHub implementation has been reviewed against the current repository source, but this session cannot run the user's local Windows dependency environment or MongoDB Atlas connection. Local validation and database setup are required before Phase 7 is marked production-ready.
+- Local `npm run lint` passed.
+- Local `npx tsc --noEmit` passed.
+- Local `npm run build` passed.
+- Local `git diff --check` passed.
+- User confirmed appointment creation and cancellation work against the configured MongoDB environment.
+
+# Completion ledger — Phase 8
+
+Status: **Implemented — local validation pending**
+
+Created:
+
+- `lib/calendar/calendar-links.ts`
+- `app/api/appointments/[confirmationToken]/ics/route.ts`
+- `components/public/calendar/calendar-actions.tsx`
+- `docs/PHASE_8.md`
+
+Modified:
+
+- `components/public/booking/booking-confirmation.tsx`
+- `components/public/appointments/appointment-management.tsx`
+- `PROJECT_MAP.md`
+
+Important new functions:
+
+- `getGoogleCalendarUrl`
+- `getOutlookCalendarUrl`
+- ICS event generation in `app/api/appointments/[confirmationToken]/ics/route.ts`
+
+Important new UI component:
+
+- `CalendarActions`
+
+Validation required before marking Phase 8 production-ready:
+
+- `npm run lint`
+- `npx tsc --noEmit`
+- `npm run build`
+- `git diff --check`
+- Manual Google Calendar, Outlook and `.ics` smoke tests.
