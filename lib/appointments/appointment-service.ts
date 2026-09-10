@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { MongoServerError } from "mongodb";
 import { bookingSettings } from "@/lib/config/booking-settings";
 import { services } from "@/lib/config/services";
+import type { Service } from "@/lib/config/services";
 import {
   findActiveAppointmentsOverlapping,
   findAppointmentByIdempotencyKey,
@@ -59,7 +60,7 @@ function validateRequest(input: { serviceId: unknown; startAt: unknown; timezone
   if (typeof input.startAt !== "string") throw new AppointmentBookingError("INVALID_REQUEST", "Please choose a valid appointment time.");
   if (typeof input.timezone !== "string" || input.timezone.length > 100) throw new AppointmentBookingError("INVALID_REQUEST", "Please choose a valid timezone.");
   if (typeof input.name !== "string" || input.name.trim().length < 2 || input.name.trim().length > 120) throw new AppointmentBookingError("INVALID_REQUEST", "Please enter your name.");
-  if (typeof input.email !== "string" || input.email.trim().length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) throw new AppointmentBookingError("INVALID_REQUEST", "Please enter a valid email address.");
+  if (typeof input.email !== "string" || input.email.trim().length > 200 || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(input.email.trim())) throw new AppointmentBookingError("INVALID_REQUEST", "Please enter a valid email address.");
   if (typeof input.idempotencyKey !== "string" || input.idempotencyKey.length < 16 || input.idempotencyKey.length > 100) throw new AppointmentBookingError("INVALID_REQUEST", "Please try submitting the booking again.");
 }
 
@@ -173,8 +174,7 @@ export async function rescheduleAppointment(input: { confirmationToken: string; 
   const appointmentConflicts = (await findActiveAppointmentsOverlapping(conflictStart, conflictEnd)).filter((item) => item.confirmationToken !== appointment.confirmationToken).map((item) => ({ start: item.startAt, end: item.endAt, source: "appointment" as const }));
   const calendarConflicts = await getCalendarConflicts(conflictStart, conflictEnd);
   const conflicts = [...appointmentConflicts, ...(calendarConflicts ?? []).map((interval) => ({ start: interval.start, end: interval.end, source: "calendar" as const }))];
-  const conflictsWithoutCurrentAppointment = conflicts;
-  const requestedSlot = getBookableSlots({ date, service: appointment.service, timezone, conflicts: conflictsWithoutCurrentAppointment, now }).slots.find((slot) => slot.start.getTime() === startAt.getTime() && slot.end.getTime() === endAt.getTime());
+  const requestedSlot = getBookableSlots({ date, service: services.find((item) => item.id === appointment.service.id) ?? ({ ...appointment.service, shortDescription: "", description: "", active: true, order: 0 } as Service), timezone, conflicts, now }).slots.find((slot) => slot.start.getTime() === startAt.getTime() && slot.end.getTime() === endAt.getTime());
   if (!requestedSlot) {
     await learnCalendarConflicts(calendarConflicts);
     throw new AppointmentBookingError("UNAVAILABLE", "That time is no longer available. Please choose another slot.");
