@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cancelAppointment, findAppointmentByToken, rescheduleAppointment, AppointmentBookingError } from "@/lib/appointments/appointment-service";
-import { toAppointmentPublicView } from "@/lib/appointments/appointment-repository";
+import { AppointmentBookingError, rescheduleAppointment } from "@/lib/appointments/appointment-service";
+import { cancelAppointment, findAppointmentByToken, toAppointmentPublicView } from "@/lib/appointments/appointment-repository";
 import { deleteGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
 
 export const runtime = "nodejs";
