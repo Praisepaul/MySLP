@@ -73,7 +73,7 @@ function getEventDescription(appointment: AppointmentDocument) {
 
 async function waitForMeetLink(calendar: ReturnType<typeof google.calendar>, eventId: string) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const event = await calendar.events.get({ calendarId: googleCalendarId, eventId, conferenceDataVersion: 1 });
+    const event = await calendar.events.get({ calendarId: googleCalendarId, eventId });
     const meetUrl = event.data.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === "video")?.uri;
     if (meetUrl) return meetUrl;
     await new Promise((resolve) => setTimeout(resolve, 500));
