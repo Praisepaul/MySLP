@@ -20,7 +20,8 @@ export function AdminDashboard() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/admin/appointments?status=confirmed", { cache: "no-store" });
+      const params = new URLSearchParams({ status: "confirmed", from: new Date().toISOString() });
+      const response = await fetch(`/api/admin/appointments?${params.toString()}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "We couldn't load the dashboard.");
       setAppointments(data.appointments as Appointment[]);
