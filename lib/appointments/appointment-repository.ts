@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import type { ClientSession, ObjectId } from "mongodb";
 import type { AppointmentDocument, AppointmentPublicView, GoogleCalendarSyncStatus } from "@/lib/appointments/appointment-types";
-import { getMongoDb } from "@/lib/db/mongodb";
+import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 
 const appointmentsCollection = "appointments";
 const bookingLocksCollection = "appointment_booking_locks";
@@ -119,7 +119,7 @@ export function toAppointmentPublicView(appointment: AppointmentDocument): Appoi
 }
 
 export async function cancelAppointment(confirmationToken: string) {
-  const client = await (await import("@/lib/db/mongodb")).getMongoClient();
+  const client = await getMongoClient();
   const db = await getMongoDb();
   const now = new Date();
   let cancelled: AppointmentDocument | null = null;
