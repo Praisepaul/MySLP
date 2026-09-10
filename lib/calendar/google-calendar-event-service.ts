@@ -48,6 +48,31 @@ function getConferenceData(appointment: AppointmentDocument) {
   };
 }
 
+function getAppointmentManagementUrls(appointment: AppointmentDocument) {
+  const { redirectUri } = getGoogleCalendarConfig();
+  const origin = new URL(redirectUri).origin;
+  const managementUrl = new URL(`/appointment/${encodeURIComponent(appointment.confirmationToken)}`, origin).toString();
+  const rescheduleUrl = new URL(`/appointment/${encodeURIComponent(appointment.confirmationToken)}/reschedule`, origin).toString();
+  return { managementUrl, rescheduleUrl };
+}
+
+function getEventDescription(appointment: AppointmentDocument) {
+  const { managementUrl, rescheduleUrl } = getAppointmentManagementUrls(appointment);
+  return [
+    `Patient: ${appointment.patient.name}`,
+    `Email: ${appointment.patient.email}`,
+    `Session type: ${appointment.service.online ? "Online" : "In person"}`,
+    "",
+    "Manage this appointment:",
+    managementUrl,
+    "",
+    "Reschedule appointment:",
+    rescheduleUrl,
+    "",
+    "Cancellation is available from the appointment management page.",
+  ].join("\n");
+}
+
 async function waitForMeetLink(calendar: ReturnType<typeof google.calendar>, eventId: string) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const event = await calendar.events.get({ calendarId: googleCalendarId, eventId, conferenceDataVersion: 1 });
@@ -76,7 +101,7 @@ export async function createGoogleCalendarAppointmentEvent(appointment: Appointm
       requestBody: {
         id: eventId,
         summary: `Grace Sessions — ${appointment.service.name}`,
-        description: `Patient: ${appointment.patient.name}\nEmail: ${appointment.patient.email}\nSession type: ${appointment.service.online ? "Online" : "In person"}`,
+        description: getEventDescription(appointment),
         start: { dateTime: appointment.startAt.toISOString(), timeZone: appointment.timezone },
         end: { dateTime: appointment.endAt.toISOString(), timeZone: appointment.timezone },
         attendees: getAttendees(appointment),
@@ -103,7 +128,7 @@ export async function updateGoogleCalendarAppointmentEvent(appointment: Appointm
     conferenceDataVersion: 1,
     requestBody: {
       summary: `Grace Sessions — ${appointment.service.name}`,
-      description: `Patient: ${appointment.patient.name}\nEmail: ${appointment.patient.email}\nSession type: ${appointment.service.online ? "Online" : "In person"}`,
+      description: getEventDescription(appointment),
       start: { dateTime: appointment.startAt.toISOString(), timeZone: appointment.timezone },
       end: { dateTime: appointment.endAt.toISOString(), timeZone: appointment.timezone },
       attendees: getAttendees(appointment),
