@@ -1,5 +1,6 @@
 export const googleCalendarScopes = [
   "https://www.googleapis.com/auth/calendar.freebusy",
+  "https://www.googleapis.com/auth/calendar.events",
 ] as const;
 
 export function getGoogleCalendarConfig() {
