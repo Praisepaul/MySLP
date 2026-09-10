@@ -72,7 +72,7 @@ export async function DELETE(request: Request) {
     if (eventId) {
       try {
         await deleteGoogleCalendarAppointmentEvent(eventId);
-        await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "not_connected" });
+        await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "synced" });
       } catch (error) {
         await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "failed", error: error instanceof Error ? error.message.slice(0, 500) : "Google Calendar event deletion failed." });
       }
