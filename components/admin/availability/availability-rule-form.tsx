@@ -5,11 +5,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type {
-  AvailabilityRule,
-  DayOfWeek,
+import {
+  type AvailabilityRule,
+  type DayOfWeek,
+  validateAvailabilityRule,
 } from "@/lib/config/availability";
 
 interface AvailabilityRuleFormProps {
@@ -78,21 +85,6 @@ export function AvailabilityRuleForm({
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!values.startTime || !values.endTime) {
-      setError("Please enter both a start time and an end time.");
-      return;
-    }
-
-    if (values.startTime >= values.endTime) {
-      setError("End time must be later than start time.");
-      return;
-    }
-
-    if (!values.timezone.trim()) {
-      setError("Please enter a timezone.");
-      return;
-    }
-
     const rule: AvailabilityRule = {
       id:
         initialRule?.id ??
@@ -103,6 +95,13 @@ export function AvailabilityRuleForm({
       timezone: values.timezone.trim(),
       active: values.active,
     };
+
+    const validationError = validateAvailabilityRule(rule);
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     onSubmit?.(rule);
   }

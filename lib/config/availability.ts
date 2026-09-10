@@ -114,10 +114,80 @@ export const availabilityRules: AvailabilityRule[] = [
 
 export const availabilityExceptions: AvailabilityException[] = [];
 
+const validDays = new Set<DayOfWeek>([
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+]);
+
+function isValidTime(time: string) {
+  if (!/^\d{2}:\d{2}$/.test(time)) {
+    return false;
+  }
+
+  const [hours, minutes] = time.split(":").map(Number);
+
+  return (
+    hours >= 0 &&
+    hours <= 23 &&
+    minutes >= 0 &&
+    minutes <= 59
+  );
+}
+
+function isValidTimezone(timezone: string) {
+  try {
+    new Intl.DateTimeFormat("en", {
+      timeZone: timezone,
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function validateAvailabilityRule(
+  rule: AvailabilityRule,
+): string | null {
+  if (!rule.id.trim()) {
+    return "An availability rule must have an id.";
+  }
+
+  if (!validDays.has(rule.dayOfWeek)) {
+    return "Please select a valid day.";
+  }
+
+  if (!isValidTime(rule.startTime) || !isValidTime(rule.endTime)) {
+    return "Availability times must use a valid HH:MM format.";
+  }
+
+  if (rule.startTime >= rule.endTime) {
+    return "End time must be later than start time.";
+  }
+
+  if (!rule.timezone.trim()) {
+    return "Please provide a timezone.";
+  }
+
+  if (!isValidTimezone(rule.timezone.trim())) {
+    return "Please provide a valid IANA timezone.";
+  }
+
+  return null;
+}
+
 export function isAvailabilityException(
   exception: AvailabilityException,
 ): boolean {
-  return exception.type === "unavailable" || exception.type === "custom-hours";
+  return (
+    exception.type === "unavailable" ||
+    exception.type === "custom-hours"
+  );
 }
 
 export function isFullDayException(
@@ -135,6 +205,23 @@ export function isPartialDayException(
   );
 }
 
+function isValidDateString(date: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return false;
+  }
+
+  const [year, month, day] = date.split("-").map(Number);
+  const parsedDate = new Date(
+    Date.UTC(year, month - 1, day),
+  );
+
+  return (
+    parsedDate.getUTCFullYear() === year &&
+    parsedDate.getUTCMonth() === month - 1 &&
+    parsedDate.getUTCDate() === day
+  );
+}
+
 export function validateAvailabilityException(
   exception: AvailabilityException,
 ): string | null {
@@ -142,8 +229,8 @@ export function validateAvailabilityException(
     return "An availability exception must have an id.";
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(exception.date)) {
-    return "Availability exception date must use YYYY-MM-DD format.";
+  if (!isValidDateString(exception.date)) {
+    return "Availability exception date must be a valid YYYY-MM-DD date.";
   }
 
   if (!isAvailabilityException(exception)) {
@@ -153,6 +240,13 @@ export function validateAvailabilityException(
   if (exception.type === "custom-hours") {
     if (!exception.startTime || !exception.endTime) {
       return "Custom-hours exceptions require both a start time and an end time.";
+    }
+
+    if (
+      !isValidTime(exception.startTime) ||
+      !isValidTime(exception.endTime)
+    ) {
+      return "Exception times must use a valid HH:MM format.";
     }
 
     if (exception.startTime >= exception.endTime) {
