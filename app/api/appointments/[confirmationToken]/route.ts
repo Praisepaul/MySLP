@@ -20,7 +20,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const { confirmationToken } = await context.params;
   try {
     const body = await request.json();
-    const appointment = await rescheduleAppointment({ confirmationToken, startAt: body.startAt });
+    const appointment = await rescheduleAppointment({ confirmationToken, startAt: body.startAt, timezone: body.timezone });
     return NextResponse.json({ appointment: toAppointmentPublicView(appointment) });
   } catch (error) {
     const status = error instanceof AppointmentBookingError ? (error.code === "INVALID_REQUEST" ? 400 : error.code === "UNAVAILABLE" ? 409 : 500) : 500;
