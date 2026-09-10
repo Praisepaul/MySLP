@@ -9,8 +9,9 @@ export const runtime = "nodejs";
 export async function POST() {
   try {
     await requireGoogleCalendarSetupAccess();
-    const start = new Date();
-    const end = new Date(start.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const end = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000);
     const busyIntervals = await getGoogleCalendarBusyIntervals(start, end);
 
     if (busyIntervals !== null) {
