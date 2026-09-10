@@ -1,5 +1,3 @@
-import type { ObjectId } from "mongodb";
-
 export const googleCalendarConnectionId = "therapist";
 
 export type GoogleCalendarConnectionDocument = {
@@ -20,8 +18,4 @@ export type GoogleCalendarConnectionStatus = {
 export type GoogleCalendarBusyInterval = {
   start: Date;
   end: Date;
-};
-
-export type GoogleCalendarConnectionMongoDocument = GoogleCalendarConnectionDocument & {
-  _id: typeof googleCalendarConnectionId | ObjectId;
 };
