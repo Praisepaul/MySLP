@@ -1,12 +1,41 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Clock3, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AvailabilityRule, DayOfWeek } from "@/lib/config/availability";
-interface Props { rules: AvailabilityRule[]; editingId?: string; onEdit?: (rule: AvailabilityRule) => void; onSetActive?: (id: string, active: boolean) => void; renderEditor?: (rule: AvailabilityRule) => React.ReactNode; busy?: boolean; }
+
+interface Props {
+  rules: AvailabilityRule[];
+  editingId?: string;
+  onEdit?: (rule: AvailabilityRule) => void;
+  onSetActive?: (id: string, active: boolean) => void;
+  renderEditor?: (rule: AvailabilityRule) => React.ReactNode;
+  busy?: boolean;
+}
+
 const order: Record<DayOfWeek, number> = { monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7 };
 const labels: Record<DayOfWeek,string> = { monday:"Monday",tuesday:"Tuesday",wednesday:"Wednesday",thursday:"Thursday",friday:"Friday",saturday:"Saturday",sunday:"Sunday" };
-function formatTime(value:string){const [h,m]=value.split(":").map(Number);if(Number.isNaN(h)||Number.isNaN(m))return value;const d=new Date();d.setHours(h,m,0,0);return new Intl.DateTimeFormat("en",{hour:"numeric",minute:"2-digit"}).format(d);}
-export function AvailabilityRulesListV2({rules,editingId,onEdit,onSetActive,renderEditor,busy}:Props){const [openId,setOpenId]=useState<string|null>(null);useEffect(()=>{if(!openId)return;const close=()=>setOpenId(null);document.addEventListener("pointerdown",close);return()=>document.removeEventListener("pointerdown",close)},[openId]);const sorted=[...rules].sort((a,b)=>order[a.dayOfWeek]-order[b.dayOfWeek]||a.startTime.localeCompare(b.startTime));if(!sorted.length)return <Card><CardContent className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center"><div className="flex size-12 items-center justify-center rounded-2xl bg-muted"><Clock3 className="size-5 text-muted-foreground"/></div><h3 className="mt-4 text-base font-semibold">No availability added</h3><p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">Add your first weekly availability window to start building your scheduling hours.</p></CardContent></Card>;return <div className="space-y-4">{sorted.map(rule=>{const menu=openId===rule.id;return <Card key={rule.id}><CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><CardTitle className="text-lg">{labels[rule.dayOfWeek]}</CardTitle><Badge variant={rule.active?"default":"secondary"}>{rule.active?"Active":"Inactive"}</Badge></div><p className="mt-2 text-sm text-muted-foreground">{rule.timezone}</p></div><div className="relative shrink-0" onPointerDown={e=>e.stopPropagation()}><Button type="button" variant="ghost" size="icon" aria-label={`More actions for ${labels[rule.dayOfWeek]} availability`} aria-expanded={menu} onClick={()=>setOpenId(menu?null:rule.id)}><MoreHorizontal className="size-4"/></Button>{menu&&<div role="menu" className="absolute right-0 z-20 mt-2 w-40 rounded-xl border bg-background p-1 shadow-lg"><button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted" disabled={busy} onClick={()=>{setOpenId(null);onEdit?.(rule)}}>Edit</button><button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted" disabled={busy} onClick={()=>{setOpenId(null);onSetActive?.(rule.id,!rule.active)}}>{rule.active?"Disable":"Enable"}</button></div>}</div></CardHeader><CardContent><div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground"><span className="inline-flex items-center gap-2"><Clock3 className="size-4"/>{formatTime(rule.startTime)} – {formatTime(rule.endTime)}</span><span>{rule.timezone}</span></div></CardContent>{editingId===rule.id&&renderEditor&&<CardContent className="border-t pt-6">{renderEditor(rule)}</CardContent>}</Card>})}</div>}
+function formatTime(value:string){const [h,m]=value.split(":").map(Number);if(Number.isNaN(h)||Number.isNaN(m))return value;const d=new Date();d.setHours(h,m,0,0);return new Intl.DateTimeFormat("en",{hour:"numeric",minute:"2-digit"}).format(d)}
+
+export function AvailabilityRulesListV2({rules,editingId,onEdit,onSetActive,renderEditor,busy}:Props){
+  const [openId,setOpenId]=useState<string|null>(null);
+  const menuRef=useRef<HTMLDivElement|null>(null);
+
+  useEffect(()=>{
+    if(!openId)return;
+    const close=(event:PointerEvent)=>{
+      const target=event.target;
+      if(target instanceof Node && menuRef.current?.contains(target))return;
+      setOpenId(null);
+    };
+    document.addEventListener("pointerdown",close);
+    return()=>document.removeEventListener("pointerdown",close);
+  },[openId]);
+
+  const sorted=[...rules].sort((a,b)=>order[a.dayOfWeek]-order[b.dayOfWeek]||a.startTime.localeCompare(b.startTime));
+  if(!sorted.length)return <Card><CardContent className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center"><div className="flex size-12 items-center justify-center rounded-2xl bg-muted"><Clock3 className="size-5 text-muted-foreground"/></div><h3 className="mt-4 text-base font-semibold">No availability added</h3><p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">Add your first weekly availability window to start building your scheduling hours.</p></CardContent></Card>;
+
+  return <div className="space-y-4">{sorted.map(rule=>{const menu=openId===rule.id;return <Card key={rule.id} className="overflow-visible"><CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><CardTitle className="text-lg">{labels[rule.dayOfWeek]}</CardTitle><Badge variant={rule.active?"default":"secondary"}>{rule.active?"Active":"Inactive"}</Badge></div><p className="mt-2 text-sm text-muted-foreground">{rule.timezone}</p></div><div ref={menu?menuRef:undefined} className="relative shrink-0"><Button type="button" variant="ghost" size="icon" aria-label={`More actions for ${labels[rule.dayOfWeek]} availability`} aria-expanded={menu} onClick={()=>setOpenId(menu?null:rule.id)}><MoreHorizontal className="size-4"/></Button>{menu&&<div role="menu" className="absolute right-0 z-50 mt-2 w-40 rounded-xl border bg-background p-1 shadow-lg"><button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50" disabled={busy} onClick={()=>{setOpenId(null);onEdit?.(rule)}}>Edit</button><button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50" disabled={busy} onClick={()=>{setOpenId(null);onSetActive?.(rule.id,!rule.active)}}>{rule.active?"Disable":"Enable"}</button></div>}</div></CardHeader><CardContent><div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground"><span className="inline-flex items-center gap-2"><Clock3 className="size-4"/>{formatTime(rule.startTime)} – {formatTime(rule.endTime)}</span><span>{rule.timezone}</span></div></CardContent>{editingId===rule.id&&renderEditor&&<CardContent className="border-t pt-6">{renderEditor(rule)}</CardContent>}</Card>})}</div>;
+}
