@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import type { ClientSession, ObjectId } from "mongodb";
-import type { AppointmentDocument, AppointmentPublicView, GoogleCalendarSyncStatus } from "@/lib/appointments/appointment-types";
+import type { AppointmentDocument, AppointmentPublicView, AppointmentStatus, GoogleCalendarSyncStatus } from "@/lib/appointments/appointment-types";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 
 const appointmentsCollection = "appointments";
@@ -18,6 +18,7 @@ export async function ensureAppointmentIndexes() {
     { key: { idempotencyKey: 1 }, unique: true, name: "idempotencyKey_unique" },
     { key: { startAt: 1, endAt: 1, status: 1 }, name: "active_interval_lookup" },
     { key: { status: 1, startAt: 1 }, name: "status_start_lookup" },
+    { key: { "patient.email": 1, startAt: -1 }, name: "patient_email_start_lookup" },
   ]);
   await db.collection(bookingLocksCollection).createIndex({ bucketStart: 1 }, { unique: true, name: "bucketStart_unique" });
 }
@@ -39,6 +40,34 @@ export async function findActiveAppointmentsOverlapping(startAt: Date, endAt: Da
     startAt: { $lt: endAt },
     endAt: { $gt: startAt },
   }).toArray();
+}
+
+export async function findAdminAppointments(input: {
+  status?: AppointmentStatus;
+  search?: string;
+  from?: Date;
+  to?: Date;
+  limit?: number;
+}) {
+  const db = await getMongoDb();
+  const filter: Record<string, unknown> = {};
+  if (input.status) filter.status = input.status;
+  if (input.from || input.to) filter.startAt = { ...(input.from ? { $gte: input.from } : {}), ...(input.to ? { $lt: input.to } : {}) };
+  if (input.search?.trim()) {
+    const escaped = input.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+    filter.$or = [{ "patient.name": regex }, { "patient.email": regex }, { "service.name": regex }, { confirmationToken: regex }];
+  }
+  return db.collection<AppointmentDocument>(appointmentsCollection).find(filter).sort({ startAt: 1 }).limit(Math.min(input.limit ?? 200, 500)).toArray();
+}
+
+export async function updateAppointmentStatus(input: { confirmationToken: string; status: Extract<AppointmentStatus, "completed" | "no_show"> }) {
+  const db = await getMongoDb();
+  return db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
+    { confirmationToken, status: "confirmed" },
+    { $set: { status: input.status, updatedAt: new Date() } },
+    { returnDocument: "after" },
+  );
 }
 
 function createAvailabilityRevision() {
@@ -104,11 +133,7 @@ export async function updateGoogleCalendarSyncStatus(input: {
   await db.collection<AppointmentDocument>(appointmentsCollection).updateOne({ confirmationToken: input.confirmationToken }, update);
 }
 
-export async function updateAppointmentSchedule(input: {
-  confirmationToken: string;
-  startAt: Date;
-  endAt: Date;
-}) {
+export async function updateAppointmentSchedule(input: { confirmationToken: string; startAt: Date; endAt: Date }) {
   const db = await getMongoDb();
   return db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
     { confirmationToken: input.confirmationToken, status: "confirmed" },
