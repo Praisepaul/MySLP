@@ -14,7 +14,7 @@ import { services } from "@/lib/config/services";
 
 const activeServices = services.filter((service) => service.active).sort((a, b) => a.order - b.order);
 type BookingStep = 1 | 2 | 3 | 4 | 5;
-const availabilityRefreshIntervalMs = 3 * 60 * 1000;
+const availabilityRefreshIntervalMs = 3 * 1000;
 
 type SerializedAvailabilitySlot = { start: string; end: string; timezone: string; serviceId: string };
 type AvailabilityState = { key: string; dates: string[]; slotsByDate: Record<string, BookableSlot[]>; error: string | null };
