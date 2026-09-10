@@ -5,8 +5,11 @@ import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 
 const appointmentsCollection = "appointments";
 const bookingLocksCollection = "appointment_booking_locks";
+const availabilityRevisionCollection = "availability_revisions";
+const availabilityRevisionId = "public-booking";
 
 type BookingLockDocument = { _id?: ObjectId; bucketStart: Date; confirmationToken: string };
+type AvailabilityRevisionDocument = { _id: typeof availabilityRevisionId; revision: string; updatedAt: Date };
 
 export async function ensureAppointmentIndexes() {
   const db = await getMongoDb();
@@ -36,6 +39,8 @@ export async function findActiveAppointmentsOverlapping(startAt: Date, endAt: Da
 
 export async function getBookingLocksRevision(): Promise<string> {
   const db = await getMongoDb();
+  const revision = await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).findOne({ _id: availabilityRevisionId }, { projection: { revision: 1 } });
+  if (revision?.revision) return revision.revision;
   const collection = db.collection<BookingLockDocument>(bookingLocksCollection);
   const [count, latest] = await Promise.all([
     collection.countDocuments(),
@@ -44,7 +49,18 @@ export async function getBookingLocksRevision(): Promise<string> {
   return createHash("sha256").update(`${count}:${latest?._id?.toHexString() ?? "none"}`).digest("hex");
 }
 
-export function toAppointmentPublicView(appointment: AppointmentDocument): AppointmentPublicView {
+export async function bumpBookingLocksRevision(session: ClientSession): Promise<string> {
+  const db = await getMongoDb();
+  const revision = createHash("sha256").update(`${Date.now()}:${Math.random()}:${crypto.randomUUID()}`).digest("hex");
+  await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).updateOne(
+    { _id: availabilityRevisionId },
+    { $set: { revision, updatedAt: new Date() } },
+    { upsert: true, session },
+  );
+  return revision;
+}
+
+export async function toAppointmentPublicView(appointment: AppointmentDocument): Promise<AppointmentPublicView> {
   return { confirmationToken: appointment.confirmationToken, status: appointment.status, service: appointment.service, patientName: appointment.patient.name, patientEmail: appointment.patient.email, startAt: appointment.startAt.toISOString(), endAt: appointment.endAt.toISOString(), timezone: appointment.timezone, createdAt: appointment.createdAt.toISOString(), ...(appointment.cancelledAt ? { cancelledAt: appointment.cancelledAt.toISOString() } : {}) };
 }
 
@@ -62,6 +78,7 @@ export async function cancelAppointment(confirmationToken: string) {
     if (!result) return;
     cancelled = result;
     await db.collection(bookingLocksCollection).deleteMany({ confirmationToken }, { session: transactionSession });
+    await bumpBookingLocksRevision(transactionSession);
   }));
   return cancelled;
 }
