@@ -1,171 +1,123 @@
 # Phase 9 — Therapist Google Calendar Integration
 
+## Status
+
+Phase 9 is complete. Phase 9.1 added low-cost live MongoDB availability synchronization, and Phase 9.2 adds intelligent conflict learning from live Google Calendar booking checks.
+
 ## Goal
 
 Connect the therapist's Google Calendar to Grace Sessions so the application can use Google Calendar free/busy data as an external conflict source during availability calculation and final appointment validation.
 
-## Scope
+## Scope completed
 
 - Google OAuth 2.0 web-server flow.
-- Offline access with a refresh token.
-- Minimal Calendar API scope: `https://www.googleapis.com/auth/calendar.freebusy`.
-- Primary Google Calendar is used for Phase 9.
-- Refresh token is encrypted before MongoDB storage.
-- Manual 7-day free/busy check from the admin Calendar page.
-- Public booking availability is calculated server-side from availability rules plus live MongoDB appointments plus live Google Calendar free/busy data.
-- Public booking shows only currently bookable dates/times from that combined availability calculation.
-- Final booking validation still re-checks both MongoDB and Google Calendar to handle race conditions/stale availability.
-- MongoDB remains the application source of truth.
-- No cron jobs or background polling.
+- Offline access with an encrypted refresh token.
+- Therapist primary Google Calendar integration.
+- Google Calendar free/busy validation during final booking.
+- Cached Google free/busy data for public availability.
+- Manual Google Calendar synchronization from the admin Calendar page.
+- Public availability returns only currently bookable dates/times.
+- MongoDB `availability_revisions` singleton for cheap availability change detection.
+- Visible booking pages poll the MongoDB revision every 3 seconds; this endpoint never calls Google Calendar.
+- Booking and cancellation update the revision transactionally with MongoDB appointment/lock changes.
+- Final booking validation remains authoritative and fail-closed.
+- Patients never need Google OAuth.
 
-## Files
+## Phase 9.2 — Intelligent conflict learning
 
-### Google Calendar domain/infrastructure
+A booking attempt can discover a Google Calendar event before the next scheduled admin sync. When the live Google FreeBusy check reports a conflict:
+
+1. The conflicting Google busy interval is stored in `google_calendar_discovered_conflicts`.
+2. The public availability revision is bumped immediately when a new conflict is learned.
+3. Other open booking pages detect that revision within the normal 3-second MongoDB poll.
+4. The next availability calculation includes the learned conflict, so the slot disappears without requiring a Google API poll from every patient browser.
+5. A later manual Google sync reconciles the learned conflicts against the real calendar and clears the learned records in the refreshed range.
+
+These records are intentionally separate from `appointment_booking_locks`: a Grace Sessions booking lock represents an application reservation, while a discovered conflict represents an external calendar fact.
+
+## Availability architecture
+
+```text
+Scheduled/manual Google sync ─────┐
+                                  ├─> local Google busy cache
+Live Google check during booking ─┤
+                                  └─> discovered external conflicts
+                                             │
+Mongo appointments ─────────────────────────┤
+Mongo booking locks ────────────────────────┤
+                                             ↓
+                                      bookable slots
+                                             ↓
+                                  availability_revisions
+                                             ↓
+                                  3-second visible clients
+```
+
+The system therefore avoids continuous Google polling while still becoming immediately smarter when a patient encounters a previously unseen external calendar conflict.
+
+## MongoDB collections
+
+- `google_calendar_connections` — therapist OAuth connection and encrypted refresh token.
+- `google_calendar_busy_cache` — latest manually refreshed Google busy snapshot.
+- `google_calendar_discovered_conflicts` — external conflicts learned from live booking-time checks and awaiting reconciliation.
+- `availability_revisions` — singleton public availability revision used by the lightweight 3-second polling endpoint.
+- `appointment_booking_locks` — concurrency protection for Grace Sessions bookings.
+- `appointments` — authoritative application bookings.
+
+## Important files/functions
+
+### Google Calendar
 
 - `lib/calendar/google-calendar-config.ts`
   - `googleCalendarScopes`
   - `getGoogleCalendarConfig`
   - `googleCalendarId`
-- `lib/calendar/google-calendar-types.ts`
-  - `GoogleCalendarConnectionDocument`
-  - `GoogleCalendarConnectionStatus`
-  - `GoogleCalendarBusyInterval`
-- `lib/calendar/google-calendar-crypto.ts`
-  - `encryptGoogleRefreshToken`
-  - `decryptGoogleRefreshToken`
-- `lib/calendar/google-calendar-repository.ts`
-  - `getGoogleCalendarConnection`
-  - `saveGoogleCalendarConnection`
-  - `deleteGoogleCalendarConnection`
-  - `getGoogleCalendarConnectionStatus`
 - `lib/calendar/google-calendar-service.ts`
   - `getGoogleCalendarAuthorizationUrl`
   - `connectGoogleCalendar`
   - `getGoogleCalendarBusyIntervals`
+  - `getCachedGoogleCalendarBusyIntervals`
   - `hasGoogleCalendarConnection`
+- `lib/calendar/google-calendar-repository.ts`
+  - `getGoogleCalendarConnection`
+  - `saveGoogleCalendarConnection`
+  - `deleteGoogleCalendarConnection`
+  - `saveGoogleCalendarBusyCache`
+  - `getGoogleCalendarBusyCache`
+  - `saveDiscoveredGoogleCalendarConflict`
+  - `getDiscoveredGoogleCalendarConflicts`
+  - `clearDiscoveredGoogleCalendarConflicts`
 
-### Public availability
+### Booking / live availability
 
-- `lib/booking/public-availability-service.ts`
-  - `getPublicBookableSlots`
-  - server-side aggregation of MongoDB appointment conflicts and Google Calendar free/busy conflicts
-- `app/api/availability/route.ts`
-  - `POST`
-  - returns only bookable slot data; conflict sources are never exposed to patients
-- `components/public/booking/booking-flow.tsx`
-  - fetches live server-side availability
-  - shows only dates with at least one currently bookable time
-- `components/public/booking/booking-date-time-picker.tsx`
-  - presents only bookable times
-  - shows a clean empty state when no date/time is currently available
-
-### Temporary setup access
-
-- `lib/admin/setup-auth.ts`
-  - `isSetupSecretConfigured`
-  - `isGoogleCalendarConfigured`
-  - `unlockGoogleCalendarSetup`
-  - `isGoogleCalendarSetupUnlocked`
-  - `requireGoogleCalendarSetupAccess`
-  - `createGoogleCalendarOAuthState`
-  - `consumeGoogleCalendarOAuthState`
-
-This is intentionally a temporary setup gate. Full admin authentication/authorization will replace it in the later admin security work.
-
-### API routes
-
-- `app/api/admin/google-calendar/unlock/route.ts` — setup gate.
-- `app/api/admin/google-calendar/connect/route.ts` — starts OAuth.
-- `app/api/admin/google-calendar/callback/route.ts` — exchanges OAuth code and stores encrypted refresh token.
-- `app/api/admin/google-calendar/status/route.ts` — connection status.
-- `app/api/admin/google-calendar/disconnect/route.ts` — removes stored connection.
-- `app/api/admin/google-calendar/sync/route.ts` — manually checks the next seven days of free/busy data.
-
-### Admin UI
-
-- `app/admin/calendar/page.tsx`
-- `components/admin/calendar/google-calendar-card.tsx`
-
-### Booking integration
-
+- `lib/appointments/appointment-repository.ts`
+  - `getBookingLocksRevision`
+  - `bumpBookingLocksRevision`
+  - `bumpPublicAvailabilityRevision`
+  - `updateGoogleCalendarSyncStatus`
+  - `cancelAppointment`
 - `lib/appointments/appointment-service.ts`
-  - final booking validation includes MongoDB appointment conflicts and Google Calendar busy intervals when connected.
-  - the final re-check remains intentionally in place for concurrency/race-condition protection.
+  - `createAppointment`
+  - learns Google conflicts when the live final check rejects the requested slot
+- `app/api/availability/revision/route.ts`
+  - Mongo-only revision endpoint
+- `components/public/booking/booking-flow.tsx`
+  - 3-second visible-tab polling
+- `lib/booking/public-availability-service.ts`
+  - combines application conflicts with cached/learned Google conflicts
 
-## MongoDB
+## Final booking rule
 
-Collection:
+The local cache is an optimization and UX mechanism, not the authority for the therapist's Google Calendar. Every booking still performs a live Google FreeBusy check before the MongoDB transaction. If Google is unavailable, the booking fails closed.
 
-- `google_calendar_connections`
+## Scheduled reconciliation
 
-The application stores one therapist connection document containing:
+The admin Google sync covers the current public booking horizon plus boundary padding. It clears learned external conflicts in the refreshed range and replaces the Google busy snapshot with fresh data. A successful reconciliation bumps the public availability revision so open patient pages update automatically.
 
-- provider
-- calendar ID (`primary` in Phase 9)
-- encrypted refresh token
-- created/updated timestamps
+## Security / cost principles
 
-Access tokens are not persisted because the Google OAuth client can refresh them from the encrypted refresh token.
-
-## Required environment variables
-
-```env
-GOOGLE_CALENDAR_CLIENT_ID=
-GOOGLE_CALENDAR_CLIENT_SECRET=
-GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:3000/api/admin/google-calendar/callback
-GOOGLE_CALENDAR_SETUP_SECRET=
-GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY=
-```
-
-Do not commit `.env.local` or any Google client secret/token.
-
-## Google Cloud setup
-
-1. Create or select a Google Cloud project.
-2. Enable the Google Calendar API.
-3. Configure the OAuth consent/branding screen.
-4. Create a Web application OAuth client.
-5. Add the local redirect URI:
-   `http://localhost:3000/api/admin/google-calendar/callback`
-6. Put the client ID and client secret into `.env.local`.
-7. Generate a long random setup secret.
-8. Generate a long random token-encryption secret and keep it stable.
-9. Restart the Next.js development server after changing `.env.local`.
-
-For production, create the production OAuth client/redirect URI separately and use HTTPS.
-
-## Manual UI validation
-
-1. Open `/admin/calendar`.
-2. Enter the configured setup key.
-3. Click **Connect Google Calendar**.
-4. Authorize the therapist's Google account.
-5. Return to Grace Sessions and confirm the connected state.
-6. Click **Check calendar**.
-7. Verify a successful seven-day free/busy check.
-8. Create a real event in the therapist's primary Google Calendar.
-9. Open `/book` and confirm the overlapping time is not offered to the patient.
-10. Delete/move the Google Calendar event.
-11. Refresh booking availability and confirm the time becomes available again when the application calendar is also free.
-12. Test a race condition by having another booking occupy a slot after it was displayed; the final booking request should still reject the slot rather than double-booking it.
-13. Test **Disconnect** and confirm the connection state clears.
-
-## Security notes
-
-- OAuth state is signed and stored in an HttpOnly, SameSite cookie.
-- The setup gate is server-side and does not expose the setup secret to the application runtime beyond the request comparison.
-- Refresh tokens are encrypted with AES-256-GCM before MongoDB storage.
-- The booking engine fails closed when a configured Google Calendar cannot be checked.
-- Only the minimum Phase 9 free/busy scope is requested.
-- No calendar event details are copied into the application database.
-- Public availability exposes only bookable slot timestamps; it does not expose patient appointments or Google Calendar event details.
-
-## Deferred to later phases
-
-- Full admin authentication/authorization.
-- Selecting among multiple therapist calendars.
-- Persisted incremental calendar synchronization.
-- Google Calendar event creation.
-- Google Meet creation.
-- Calendar webhook/push notifications.
-- Patient Google OAuth.
+- No continuous Google polling from patient browsers.
+- The 3-second polling endpoint reads only one lightweight MongoDB revision document.
+- Google API calls happen for the scheduled/manual sync and the authoritative final booking check, not on every browser poll.
+- Patients do not receive Google event details or conflict-source metadata.
+- MongoDB remains the application booking source of truth.
