@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Grace Session Scheduler is a lightweight multilingual appointment scheduling application for a speech-language pathologist. It is designed to provide a polished, Calendly-like scheduling experience without patient accounts or unnecessary clinical data storage.
+Grace Session Scheduler is a lightweight multilingual appointment scheduling application for a speech-language pathologist. It provides a polished, Calendly-like experience without patient accounts or unnecessary clinical data storage.
 
 ## Product decisions
 
@@ -11,7 +11,7 @@ Grace Session Scheduler is a lightweight multilingual appointment scheduling app
 - Manual Google Calendar synchronization for the therapist.
 - No cron jobs.
 - Google Meet for online appointments.
-- MongoDB Atlas as the future persistence layer.
+- MongoDB Atlas persistence.
 - Vercel primary deployment; Render/Railway remain practical alternatives.
 - English, Portuguese and Hindi from the beginning.
 - Appointment timestamps stored in UTC.
@@ -19,7 +19,6 @@ Grace Session Scheduler is a lightweight multilingual appointment scheduling app
 - Patients are not required to authorize Google Calendar.
 - Patient calendar support will include Google Calendar, Apple Calendar, Outlook and `.ics`.
 - Admin must eventually manage content without source-code edits.
-- Admin UX should be understandable to a non-technical therapist.
 - Premium, calm, responsive and accessibility-first UI.
 
 ## Technology
@@ -30,9 +29,9 @@ Grace Session Scheduler is a lightweight multilingual appointment scheduling app
 - Tailwind CSS 4
 - shadcn/ui
 - Lucide icons
-- Next.js server/API boundaries where practical
+- MongoDB Node.js driver
 - MongoDB Atlas
-- Google Calendar / Google Meet
+- Google Calendar / Google Meet later
 - Formspree
 - Transactional email provider later
 
@@ -43,8 +42,9 @@ Public UI
   ├── therapist profile
   ├── services
   ├── booking
+  ├── appointment management
   ├── contact
-  └── appointment management / calendar support (later)
+  └── patient calendar support (later)
 
 Admin UI
   ├── dashboard
@@ -57,22 +57,26 @@ Admin UI
   └── settings (later)
 
 Booking domain: lib/booking/
-  ├── framework-independent calculation
-  └── future API/database/calendar adapters stay outside the domain
+  ├── framework-independent scheduling calculation
+  └── infrastructure remains outside the domain
+
+Appointment infrastructure: lib/appointments/ + lib/db/
+  ├── persistence
+  ├── server-side revalidation
+  ├── idempotency
+  └── transaction-backed booking locks
 ```
 
-# Public application
+# Public shell
 
-## Existing shell
-
-- `components/public/navigation/public-header.tsx` — sticky public header and booking CTA.
+- `components/public/navigation/public-header.tsx` — sticky header and booking CTA.
 - `components/public/navigation/public-nav.tsx` — desktop navigation.
-- `components/public/navigation/mobile-nav.tsx` — responsive mobile navigation and booking CTA.
-- `components/public/navigation/language-selector.tsx` — English/Portuguese/Hindi selector foundation.
+- `components/public/navigation/mobile-nav.tsx` — responsive navigation and booking CTA.
+- `components/public/navigation/language-selector.tsx` — English/Portuguese/Hindi foundation.
 - `components/public/layout/public-footer.tsx` — public footer.
-- `components/ui/page-container.tsx` — shared page width/container primitive.
+- `components/ui/page-container.tsx` — shared page width primitive.
 
-## Profile
+# Profile — Phase 2 complete
 
 Configuration:
 
@@ -90,8 +94,6 @@ Homepage composition:
 
 - `app/page.tsx`
 
-The homepage remains a composition layer. Profile content is configuration-driven and is intended to migrate to the CMS/database later without changing public component responsibilities.
-
 # Services — Phase 3 complete
 
 Configuration/model:
@@ -108,11 +110,11 @@ Public:
 
 - `components/public/services/service-card.tsx`
 
-Service model supports name, short/detailed descriptions, duration, optional price/currency, online/in-person availability, active state and display ordering.
+Service model supports name, descriptions, duration, optional price/currency, online/in-person availability, active state and ordering.
 
 # Availability — Phase 4 complete
 
-Model/configuration:
+Configuration/model:
 
 - `lib/config/availability.ts`
 
@@ -131,14 +133,12 @@ Important functions:
 - `isFullDayException`
 - `isPartialDayException`
 
-Admin UI:
+Admin:
 
 - `components/admin/availability/availability-rules-list.tsx`
 - `components/admin/availability/availability-rule-form.tsx`
 - `components/admin/availability/availability-exceptions-list.tsx`
 - `app/admin/availability/page.tsx`
-
-Availability rules use local `HH:MM` times plus explicit IANA timezones. Exceptions support full-day unavailable and custom-hours overrides. Persistence is intentionally deferred.
 
 # Booking domain — Phase 5 complete
 
@@ -178,7 +178,7 @@ Important functions:
 - `validateBookingSettings`
 - `getBookableSlots`
 
-Current booking baseline configuration:
+Current development defaults:
 
 - 24-hour minimum notice
 - 60-day maximum advance
@@ -186,9 +186,7 @@ Current booking baseline configuration:
 - 0-minute before buffer
 - 10-minute after buffer
 
-These are configurable development defaults, not final product requirements.
-
-Booking calculation flow:
+Booking calculation:
 
 ```text
 BookingSlotRequest
@@ -208,27 +206,24 @@ appointment/calendar conflicts + buffers
 SlotGenerationResult
 ```
 
-The booking domain is not connected to MongoDB, API routes or Google Calendar yet. Timezone/DST behavior requires dedicated automated tests before production. Booking horizon currently applies to slot start time. Future persisted appointments may require a more explicit buffer policy.
+The domain remains framework-independent. Timezone/DST behavior still needs dedicated automated tests before production.
 
-# Patient booking experience — Phase 6 implemented
+# Patient booking — Phase 6 + Phase 7
 
-Public route:
+Public booking route:
 
 - `app/book/page.tsx`
 
-Booking components:
+Booking UI:
 
-- `components/public/booking/booking-flow.tsx` — orchestration, timezone detection, upcoming date generation and `getBookableSlots()` integration.
-- `components/public/booking/booking-service-picker.tsx` — service selection.
-- `components/public/booking/booking-date-time-picker.tsx` — timezone selection, date availability and slot selection.
-- `components/public/booking/booking-details-form.tsx` — minimal name/email collection and client validation.
-- `components/public/booking/booking-summary.tsx` — appointment review and preview completion.
+- `components/public/booking/booking-flow.tsx`
+- `components/public/booking/booking-service-picker.tsx`
+- `components/public/booking/booking-date-time-picker.tsx`
+- `components/public/booking/booking-details-form.tsx`
+- `components/public/booking/booking-summary.tsx`
+- `components/public/booking/booking-confirmation.tsx`
 
-Documentation:
-
-- `docs/PHASE_6.md`
-
-Patient flow:
+Flow:
 
 ```text
 /book
@@ -237,22 +232,96 @@ Choose service
   ↓
 Detect/select timezone
   ↓
-Choose date
-  ↓
-Choose available time
+Choose date/time
   ↓
 Enter name + email
   ↓
 Review
   ↓
-Preview completion
+POST /api/appointments
+  ↓
+Server revalidates slot
+  ↓
+MongoDB transaction + booking locks
+  ↓
+Confirmed appointment
+  ↓
+Management link
 ```
 
-Phase 6 deliberately stops before persistent appointment creation. No patient account, MongoDB write, Google OAuth, calendar authorization, email delivery or real appointment creation was introduced.
+Phase 6 introduced the public flow and intentionally stopped before persistence. Phase 7 connects the final step to real appointment creation.
 
-The public homepage, services section, desktop header and mobile navigation now route their booking CTAs to `/book`.
+# Appointments — Phase 7 complete
 
-The booking UI uses the existing Phase 5 domain boundary rather than duplicating scheduling logic. It provides loading, empty, error and responsive states, timezone display/override, keyboard-accessible controls, progress indication and minimal-data guidance.
+Domain types:
+
+- `lib/appointments/appointment-types.ts`
+  - `AppointmentStatus`
+  - `AppointmentDocument`
+  - `AppointmentPublicView`
+  - `isAppointmentStatus`
+
+Repository:
+
+- `lib/appointments/appointment-repository.ts`
+  - `ensureAppointmentIndexes`
+  - `findAppointmentByIdempotencyKey`
+  - `findAppointmentByToken`
+  - `findActiveAppointmentsOverlapping`
+  - `toAppointmentPublicView`
+  - `cancelAppointment`
+
+Booking service:
+
+- `lib/appointments/appointment-service.ts`
+  - `createAppointment`
+  - request validation
+  - server-side slot revalidation
+  - conflict lookup
+  - idempotency
+  - transaction-backed booking locks
+
+Database:
+
+- `lib/db/mongodb.ts`
+  - `getMongoClient`
+  - `getMongoDb`
+
+Collections:
+
+- `appointments`
+- `appointment_booking_locks`
+
+Appointment statuses:
+
+```text
+confirmed → completed
+confirmed → no_show
+confirmed → cancelled
+```
+
+The public API never trusts client-side availability. The server validates the service, timezone, requested start time, current availability and current appointment conflicts before writing. A unique 30-minute UTC lock bucket is inserted for every interval touched by the appointment inside the same transaction as the appointment document. Cancellation releases those locks transactionally.
+
+API routes:
+
+- `app/api/appointments/route.ts` — `POST` appointment creation.
+- `app/api/appointments/[confirmationToken]/route.ts` — `GET` lookup and `DELETE` cancellation.
+
+Patient management:
+
+- `app/appointment/[confirmationToken]/page.tsx`
+- `components/public/appointments/appointment-management.tsx`
+
+Only scheduling data is stored. No clinical notes or patient account are introduced.
+
+Environment template:
+
+- `.env.example`
+
+Required variables after setup:
+
+- `MONGODB_URI`
+- `MONGODB_DB` (defaults to `grace_sessions`)
 
 # Admin shell
 
@@ -269,33 +338,17 @@ Current admin pages:
 - `app/admin/services/page.tsx`
 - `app/admin/availability/page.tsx`
 
+Admin appointment CRUD intentionally remains a later phase so authentication/authorization and operational controls can be designed together.
+
 # Shared UI
 
-Existing shadcn/UI foundation includes button, card, badge, alert, checkbox, dialog, dropdown-menu, input, label, select, separator, skeleton, switch, tabs, textarea and the custom `page-container`.
+Existing shadcn/UI foundation includes button, card, badge, alert, checkbox, dialog, dropdown-menu, input, label, select, separator, skeleton, switch, tabs, textarea and `page-container`.
 
-Global UI states:
+Global states:
 
 - `app/loading.tsx`
 - `app/error.tsx`
 - `app/not-found.tsx`
-
-# API and persistence
-
-No production API/database implementation exists yet.
-
-Future MongoDB collections are expected to include only what is operationally required, such as:
-
-- appointments
-- services
-- availability rules
-- availability exceptions
-- admin users
-- calendar connections
-- application settings
-
-Avoid unnecessary patient collections.
-
-Future API/server boundary should consume the booking domain and perform persistence/conflict revalidation server-side.
 
 # Calendar architecture
 
@@ -317,17 +370,17 @@ Patient:
 - Availability rules store explicit IANA timezone identifiers.
 - Appointment timestamps are stored in UTC.
 - Public booking displays times in the selected/detected patient timezone.
-- Browser timezone should be detected where appropriate, with manual override.
-- DST/timezone edge cases must be tested before production.
+- Browser timezone is detected with manual override.
+- DST/timezone edge cases require automated tests before production.
 
 # Privacy architecture
 
-This is a scheduling system, not an electronic health record. Collect only scheduling information required for the appointment workflow. Do not ask patients to submit clinical details during booking.
+This is a scheduling system, not an electronic health record. Collect only information required for appointment scheduling. Do not ask patients to submit clinical details during booking.
 
 # UI/UX principles
 
 - Premium healthcare/wellness SaaS aesthetic.
-- Calm, professional visual hierarchy.
+- Calm, professional hierarchy.
 - Mobile-first responsive design.
 - Accessibility-first controls and focus states.
 - Clear loading/error/empty states.
@@ -339,7 +392,6 @@ This is a scheduling system, not an electronic health record. Collect only sched
 - Use latest stable JS/TS tooling compatible with the project.
 - Preserve established filenames/functions unless there is a compelling architectural reason to change them.
 - Inspect latest GitHub implementation before modifying existing files.
-- New feature files may be scaffolded/created directly on GitHub.
 - Keep domain logic separate from UI and infrastructure.
 - Keep focused descriptive Git commits.
 - Run lint, TypeScript, build and diff checks locally before considering a phase production-ready.
@@ -353,8 +405,8 @@ This is a scheduling system, not an electronic health record. Collect only sched
 - Phase 3 — Services CMS — complete
 - Phase 4 — Availability management — complete
 - Phase 5 — Booking engine — complete
-- Phase 6 — Patient booking experience — complete/implemented
-- Phase 7 — Appointment management — next
+- Phase 6 — Patient booking experience — complete
+- Phase 7 — Appointment management — implemented; local MongoDB validation pending
 - Phase 8 — Patient calendar support
 - Phase 9 — Google Calendar integration
 - Phase 10 — Google Meet
@@ -369,50 +421,48 @@ This is a scheduling system, not an electronic health record. Collect only sched
 - Phase 19 — Deployment
 - Phase 20 — Handover/documentation
 
-# Completion ledger — Phase 6
+# Completion ledger — Phase 7
 
-Status: **Implemented**
+Status: **Implemented — validation pending**
 
 Created:
 
-- `app/book/page.tsx`
-- `components/public/booking/booking-flow.tsx`
-- `components/public/booking/booking-service-picker.tsx`
-- `components/public/booking/booking-date-time-picker.tsx`
-- `components/public/booking/booking-details-form.tsx`
-- `components/public/booking/booking-summary.tsx`
-- `docs/PHASE_6.md`
+- `lib/db/mongodb.ts`
+- `lib/appointments/appointment-types.ts`
+- `lib/appointments/appointment-repository.ts`
+- `lib/appointments/appointment-service.ts`
+- `app/api/appointments/route.ts`
+- `app/api/appointments/[confirmationToken]/route.ts`
+- `components/public/booking/booking-confirmation.tsx`
+- `components/public/appointments/appointment-management.tsx`
+- `app/appointment/[confirmationToken]/page.tsx`
+- `.env.example`
+- `docs/PHASE_7.md`
 
 Modified:
 
-- `app/page.tsx`
-- `components/public/navigation/public-header.tsx`
-- `components/public/navigation/mobile-nav.tsx`
-- `components/public/profile/profile-services-preview.tsx`
+- `package.json`
+- `components/public/booking/booking-flow.tsx`
+- `components/public/booking/booking-summary.tsx`
 - `PROJECT_MAP.md`
 
-Important new UI functions/components:
+Important new functions:
 
-- `BookingFlow`
-- `BookingServicePicker`
-- `BookingDateTimePicker`
-- `BookingDetailsForm`
-- `BookingSummary`
-- `getDateParts`
-- `getUpcomingDates`
-- `Stepper`
-- `formatDateLabel`
-- `formatSlotTime`
+- `getMongoClient`
+- `getMongoDb`
+- `ensureAppointmentIndexes`
+- `findAppointmentByIdempotencyKey`
+- `findAppointmentByToken`
+- `findActiveAppointmentsOverlapping`
+- `toAppointmentPublicView`
+- `cancelAppointment`
+- `createAppointment`
+
+Important new UI components:
+
+- `BookingConfirmation`
+- `AppointmentManagement`
 
 Validation limitation:
 
-The GitHub implementation was reviewed against the current repository APIs, but this session does not have the project's local Node dependency environment. Final local validation should still run:
-
-```text
-npm run lint
-npx tsc --noEmit
-npm run build
-git diff --check
-```
-
-Next phase: **Phase 7 — Appointment management**.
+The GitHub implementation has been reviewed against the current repository source, but this session cannot run the user's local Windows dependency environment or MongoDB Atlas connection. Local validation and database setup are required before Phase 7 is marked production-ready.
