@@ -9,6 +9,9 @@ export const appointmentStatuses = [
 
 export type AppointmentStatus = (typeof appointmentStatuses)[number];
 
+export const googleCalendarSyncStatuses = ["pending", "synced", "failed", "not_connected"] as const;
+export type GoogleCalendarSyncStatus = (typeof googleCalendarSyncStatuses)[number];
+
 export type AppointmentDocument = {
   _id?: ObjectId;
   confirmationToken: string;
@@ -31,6 +34,12 @@ export type AppointmentDocument = {
   createdAt: Date;
   updatedAt: Date;
   cancelledAt?: Date;
+  googleCalendar?: {
+    eventId?: string;
+    syncStatus: GoogleCalendarSyncStatus;
+    lastSyncedAt?: Date;
+    lastSyncError?: string;
+  };
 };
 
 export type AppointmentPublicView = {
