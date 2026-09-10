@@ -64,7 +64,7 @@ export async function findAdminAppointments(input: {
 export async function updateAppointmentStatus(input: { confirmationToken: string; status: Extract<AppointmentStatus, "completed" | "no_show"> }) {
   const db = await getMongoDb();
   return db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
-    { confirmationToken, status: "confirmed" },
+    { confirmationToken: input.confirmationToken, status: "confirmed" },
     { $set: { status: input.status, updatedAt: new Date() } },
     { returnDocument: "after" },
   );
