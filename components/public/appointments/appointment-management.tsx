@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CalendarCheck2, CheckCircle2, Clock3, Globe2 } from "lucide-react";
 import { buttonVariants, Button } from "@/components/ui/button";
+import { CalendarActions } from "@/components/public/calendar/calendar-actions";
 import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
 
 interface AppointmentManagementProps {
@@ -65,6 +66,12 @@ export function AppointmentManagement({ initialAppointment }: AppointmentManagem
             <div className="border-t pt-5"><p className="text-sm font-medium">Booked for</p><p className="mt-1 text-sm text-muted-foreground">{appointment.patientName} · {appointment.patientEmail}</p></div>
           </div>
         </div>
+
+        {appointment.status === "confirmed" && (
+          <div className="mt-6">
+            <CalendarActions appointment={appointment} />
+          </div>
+        )}
 
         {error && <div role="alert" className="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
 
