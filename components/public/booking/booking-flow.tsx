@@ -14,20 +14,10 @@ import { services } from "@/lib/config/services";
 
 const activeServices = services.filter((service) => service.active).sort((a, b) => a.order - b.order);
 type BookingStep = 1 | 2 | 3 | 4 | 5;
+const availabilityRefreshIntervalMs = 3 * 60 * 1000;
 
-type SerializedAvailabilitySlot = {
-  start: string;
-  end: string;
-  timezone: string;
-  serviceId: string;
-};
-
-type AvailabilityState = {
-  key: string;
-  dates: string[];
-  slotsByDate: Record<string, BookableSlot[]>;
-  error: string | null;
-};
+type SerializedAvailabilitySlot = { start: string; end: string; timezone: string; serviceId: string };
+type AvailabilityState = { key: string; dates: string[]; slotsByDate: Record<string, BookableSlot[]>; error: string | null };
 
 function getDateParts(date: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
@@ -40,33 +30,12 @@ function getUpcomingDates(timezone: string, count: number) {
   return Array.from({ length: count }, (_, index) => new Date(base + index * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
 }
 
-function getBrowserTimezone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
-}
-
-function subscribeToTimezone() {
-  return () => undefined;
-}
+function getBrowserTimezone() { return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata"; }
+function subscribeToTimezone() { return () => undefined; }
 
 function Stepper({ step }: { step: BookingStep }) {
   const items = ["Session", "Date & time", "Details", "Review"];
-  return (
-    <nav aria-label="Booking progress" className="mb-8">
-      <ol className="grid grid-cols-4 gap-2">
-        {items.map((label, index) => {
-          const number = index + 1;
-          const complete = step > number;
-          const current = step === number;
-          return (
-            <li key={label} className="min-w-0">
-              <div className="flex items-center gap-2"><span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${complete || current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{complete ? "✓" : number}</span><span className={`hidden truncate text-xs font-medium sm:block ${current ? "text-foreground" : "text-muted-foreground"}`}>{label}</span></div>
-              <div className={`mt-2 h-1 rounded-full ${number <= step ? "bg-primary" : "bg-muted"}`} />
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
+  return <nav aria-label="Booking progress" className="mb-8"><ol className="grid grid-cols-4 gap-2">{items.map((label, index) => { const number = index + 1; const complete = step > number; const current = step === number; return <li key={label} className="min-w-0"><div className="flex items-center gap-2"><span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${complete || current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{complete ? "✓" : number}</span><span className={`hidden truncate text-xs font-medium sm:block ${current ? "text-foreground" : "text-muted-foreground"}`}>{label}</span></div><div className={`mt-2 h-1 rounded-full ${number <= step ? "bg-primary" : "bg-muted"}`} /></li>; })}</ol></nav>;
 }
 
 export function BookingFlow() {
@@ -89,59 +58,42 @@ export function BookingFlow() {
 
   useEffect(() => {
     if (!service || !timezone) return;
-
     const key = `${service.id}:${timezone}`;
     let cancelled = false;
 
-    fetch("/api/availability", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serviceId: service.id, timezone, dates: upcomingDates }),
-    })
-      .then(async (response) => {
+    const refreshAvailability = async () => {
+      try {
+        const response = await fetch("/api/availability", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", body: JSON.stringify({ serviceId: service.id, timezone, dates: upcomingDates }) });
         const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error ?? "We couldn't check availability right now. Please try again.");
-        }
-        return data as {
-          dates: string[];
-          slotsByDate: Record<string, SerializedAvailabilitySlot[]>;
-        };
-      })
-      .then((data) => {
+        if (!response.ok) throw new Error(data.error ?? "We couldn't check availability right now. Please try again.");
         if (cancelled) return;
-
-        const slotsByDate = Object.fromEntries(
-          Object.entries(data.slotsByDate).map(([date, slots]) => [
-            date,
-            slots.map((slot) => ({
-              ...slot,
-              start: new Date(slot.start),
-              end: new Date(slot.end),
-            })),
-          ]),
-        );
-
-        setAvailability({
-          key,
-          dates: data.dates,
-          slotsByDate,
-          error: null,
-        });
-      })
-      .catch((requestError) => {
+        const slotsByDate = Object.fromEntries(Object.entries(data.slotsByDate as Record<string, SerializedAvailabilitySlot[]>).map(([date, slots]) => [date, slots.map((slot) => ({ ...slot, start: new Date(slot.start), end: new Date(slot.end) }))]));
+        setAvailability({ key, dates: data.dates, slotsByDate, error: null });
+      } catch (requestError) {
         if (cancelled) return;
-        setAvailability({
-          key,
-          dates: upcomingDates,
-          slotsByDate: Object.fromEntries(upcomingDates.map((date) => [date, []])),
-          error: requestError instanceof Error ? requestError.message : "We couldn't check availability right now. Please try again.",
-        });
-      });
-
-    return () => {
-      cancelled = true;
+        setAvailability((current) => current?.key === key ? current : { key, dates: upcomingDates, slotsByDate: Object.fromEntries(upcomingDates.map((date) => [date, []])), error: requestError instanceof Error ? requestError.message : "We couldn't check availability right now. Please try again." });
+      }
     };
+
+    let lastRevision: string | null = null;
+    let checkingRevision = false;
+    const checkRevision = async () => {
+      if (document.visibilityState !== "visible" || checkingRevision) return;
+      checkingRevision = true;
+      try {
+        const response = await fetch("/api/availability/revision", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json() as { revision?: string };
+        if (!data.revision) return;
+        if (lastRevision === null) { lastRevision = data.revision; return; }
+        if (data.revision !== lastRevision) { lastRevision = data.revision; await refreshAvailability(); }
+      } finally { checkingRevision = false; }
+    };
+
+    refreshAvailability();
+    checkRevision();
+    const intervalId = window.setInterval(checkRevision, availabilityRefreshIntervalMs);
+    return () => { cancelled = true; window.clearInterval(intervalId); };
   }, [service, timezone, upcomingDates]);
 
   const currentAvailability = availability?.key === availabilityKey ? availability : null;
@@ -150,73 +102,26 @@ export function BookingFlow() {
   const loading = Boolean(service && timezone && !currentAvailability);
   const availabilityError = currentAvailability?.error ?? null;
   const dates = loading ? allDates : allDates.filter((date) => (slotsByDate[date] ?? []).length > 0);
-
-  const effectiveSelectedDate = selectedDate && (slotsByDate[selectedDate] ?? []).length > 0
-    ? selectedDate
-    : dates.find((date) => (slotsByDate[date] ?? []).length > 0) ?? null;
-  const effectiveSelectedSlot = effectiveSelectedDate && selectedSlot && (slotsByDate[effectiveSelectedDate] ?? []).some((slot) => slot.start.getTime() === selectedSlot.start.getTime())
-    ? selectedSlot
-    : null;
+  const effectiveSelectedDate = selectedDate && (slotsByDate[selectedDate] ?? []).length > 0 ? selectedDate : dates.find((date) => (slotsByDate[date] ?? []).length > 0) ?? null;
+  const effectiveSelectedSlot = effectiveSelectedDate && selectedSlot && (slotsByDate[effectiveSelectedDate] ?? []).some((slot) => slot.start.getTime() === selectedSlot.start.getTime()) ? selectedSlot : null;
 
   async function handleAppointmentCreation() {
     if (!service || !effectiveSelectedSlot || submitting) return;
-
-    setSubmitting(true);
-    setError(null);
+    setSubmitting(true); setError(null);
     try {
-      const response = await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serviceId: service.id,
-          startAt: effectiveSelectedSlot.start.toISOString(),
-          timezone,
-          name: details.name,
-          email: details.email,
-          idempotencyKey: crypto.randomUUID(),
-        }),
-      });
+      const response = await fetch("/api/appointments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceId: service.id, startAt: effectiveSelectedSlot.start.toISOString(), timezone, name: details.name, email: details.email, idempotencyKey: crypto.randomUUID() }) });
       const data = await response.json();
       if (!response.ok) {
-        if (response.status === 409) {
-          setError(data.error ?? "That time is no longer available. Please choose another slot.");
-          setSelectedSlot(null);
-          setStep(2);
-          return;
-        }
+        if (response.status === 409) { setError(data.error ?? "That time is no longer available. Please choose another slot."); setSelectedSlot(null); setStep(2); return; }
         throw new Error(data.error ?? "We couldn't complete the booking. Please try again.");
       }
-      setAppointment(data.appointment as AppointmentPublicView);
-      setStep(5);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "We couldn't complete the booking. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
+      setAppointment(data.appointment as AppointmentPublicView); setStep(5);
+    } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "We couldn't complete the booking. Please try again."); }
+    finally { setSubmitting(false); }
   }
 
-  if (!service || activeServices.length === 0) {
-    return <div className="py-20 sm:py-28"><PageContainer size="narrow"><div className="rounded-3xl border border-dashed p-8 text-center sm:p-12"><CalendarCheck2 aria-hidden="true" className="mx-auto size-8 text-muted-foreground" /><h1 className="mt-4 text-2xl font-semibold">Booking is not available yet</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Please check back soon or contact the practice directly.</p></div></PageContainer></div>;
-  }
+  if (!service || activeServices.length === 0) return <div className="py-20 sm:py-28"><PageContainer size="narrow"><div className="rounded-3xl border border-dashed p-8 text-center sm:p-12"><CalendarCheck2 aria-hidden="true" className="mx-auto size-8 text-muted-foreground" /><h1 className="mt-4 text-2xl font-semibold">Booking is not available yet</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Please check back soon or contact the practice directly.</p></div></PageContainer></div>;
+  if (step === 5 && appointment) return <BookingConfirmation appointment={appointment} />;
 
-  if (step === 5 && appointment) {
-    return <BookingConfirmation appointment={appointment} />;
-  }
-
-  return (
-    <div className="bg-muted/20 py-12 sm:py-16 lg:py-20">
-      <PageContainer size="narrow">
-        <div className="mb-10 text-center sm:mb-12"><div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CalendarCheck2 aria-hidden="true" className="size-6" /></div><p className="mt-5 text-sm font-medium text-muted-foreground">Grace Sessions</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Book an appointment</h1><p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">A simple, private booking experience. No account required.</p></div>
-        <div className="rounded-3xl border bg-background p-5 shadow-sm sm:p-8 lg:p-10">
-          <Stepper step={step} />
-          {(error || availabilityError) && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error ?? availabilityError}</div>}
-          {step === 1 && <BookingServicePicker services={activeServices} selectedServiceId={serviceId} onSelect={(id) => { setServiceId(id); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onContinue={() => setStep(2)} />}
-          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={loading} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); setError(null); }} onSlotSelect={(slot) => { setSelectedSlot(slot); setError(null); }} onTimezoneChange={(value) => { setTimezoneOverride(value); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
-          {step === 3 && <BookingDetailsForm details={details} onChange={setDetails} onBack={() => setStep(2)} onContinue={() => setStep(4)} />}
-          {step === 4 && effectiveSelectedSlot && <BookingSummary service={service} slot={effectiveSelectedSlot} timezone={timezone} details={details} submitting={submitting} onBack={() => setStep(3)} onFinish={handleAppointmentCreation} />}
-        </div>
-        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck aria-hidden="true" className="size-4" /> Only scheduling details are collected.</div>
-      </PageContainer>
-    </div>
-  );
+  return <div className="bg-muted/20 py-12 sm:py-16 lg:py-20"><PageContainer size="narrow"><div className="mb-10 text-center sm:mb-12"><div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CalendarCheck2 aria-hidden="true" className="size-6" /></div><p className="mt-5 text-sm font-medium text-muted-foreground">Grace Sessions</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Book an appointment</h1><p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">A simple, private booking experience. No account required.</p></div><div className="rounded-3xl border bg-background p-5 shadow-sm sm:p-8 lg:p-10"><Stepper step={step} />{(error || availabilityError) && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error ?? availabilityError}</div>}{step === 1 && <BookingServicePicker services={activeServices} selectedServiceId={serviceId} onSelect={(id) => { setServiceId(id); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onContinue={() => setStep(2)} />}{step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={loading} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); setError(null); }} onSlotSelect={(slot) => { setSelectedSlot(slot); setError(null); }} onTimezoneChange={(value) => { setTimezoneOverride(value); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}{step === 3 && <BookingDetailsForm details={details} onChange={setDetails} onBack={() => setStep(2)} onContinue={() => setStep(4)} />}{step === 4 && effectiveSelectedSlot && <BookingSummary service={service} slot={effectiveSelectedSlot} timezone={timezone} details={details} submitting={submitting} onBack={() => setStep(3)} onFinish={handleAppointmentCreation} />}</div><div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck aria-hidden="true" className="size-4" /> Only scheduling details are collected.</div></PageContainer></div>;
 }
