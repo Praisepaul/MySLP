@@ -1,2 +1,328 @@
-// Booking availability calculation is implemented locally in VS Code.
-// This file establishes the Phase 5 calculation boundary.
+import type {
+  AvailabilityException,
+  AvailabilityRule,
+  DayOfWeek,
+} from "@/lib/config/availability";
+import type {
+  BookingWindow,
+  SlotGenerationRequest,
+} from "@/lib/booking/slot-types";
+
+const dayOfWeekNames: DayOfWeek[] = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
+
+function getDayOfWeek(date: string, timezone: string): DayOfWeek {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "long",
+  });
+
+  const weekday = formatter
+    .format(new Date(`${ date } T12:00:00Z`))
+    .toLowerCase() as DayOfWeek;
+
+  if (!dayOfWeekNames.includes(weekday)) {
+    throw new Error(`Unable to determine day of week for ${ date }.`);
+  }
+
+  return weekday;
+}
+
+function parseTime(time: string): {
+  hours: number;
+  minutes: number;
+} {
+  const [hours, minutes] = time.split(":").map(Number);
+
+  return {
+    hours,
+    minutes,
+  };
+}
+
+function getTimezoneOffsetMilliseconds(
+  date: Date,
+  timezone: string,
+): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(
+    parts
+      .filter(({ type }) => type !== "literal")
+      .map(({ type, value }) => [type, value]),
+  );
+
+  const asUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second),
+  );
+
+  return asUtc - date.getTime();
+}
+
+function zonedDateTimeToUtc(
+  date: string,
+  time: string,
+  timezone: string,
+): Date {
+  const { hours, minutes } = parseTime(time);
+
+  const naiveUtc = new Date(
+    Date.UTC(
+      Number(date.slice(0, 4)),
+      Number(date.slice(5, 7)) - 1,
+      Number(date.slice(8, 10)),
+      hours,
+      minutes,
+      0,
+      0,
+    ),
+  );
+
+  const firstOffset = getTimezoneOffsetMilliseconds(
+    naiveUtc,
+    timezone,
+  );
+
+  const adjusted = new Date(
+    naiveUtc.getTime() - firstOffset,
+  );
+
+  const secondOffset = getTimezoneOffsetMilliseconds(
+    adjusted,
+    timezone,
+  );
+
+  if (secondOffset !== firstOffset) {
+    return new Date(
+      naiveUtc.getTime() - secondOffset,
+    );
+  }
+
+  return adjusted;
+}
+
+function createBookingWindow(
+  date: string,
+  startTime: string,
+  endTime: string,
+  timezone: string,
+): BookingWindow {
+  const start = zonedDateTimeToUtc(
+    date,
+    startTime,
+    timezone,
+  );
+
+  const end = zonedDateTimeToUtc(
+    date,
+    endTime,
+    timezone,
+  );
+
+  if (start >= end) {
+    throw new Error(
+      `Availability window must end after it starts: ${ date } ${ startTime } -${ endTime }.`,
+    );
+  }
+
+  return {
+    start,
+    end,
+    timezone,
+  };
+}
+
+function getRulesForDate(
+  rules: AvailabilityRule[],
+  date: string,
+  timezone: string,
+): AvailabilityRule[] {
+  const dayOfWeek = getDayOfWeek(date, timezone);
+
+  return rules.filter(
+    (rule) =>
+      rule.active &&
+      rule.dayOfWeek === dayOfWeek,
+  );
+}
+
+function getExceptionsForDate(
+  exceptions: AvailabilityException[],
+  date: string,
+): AvailabilityException[] {
+  return exceptions.filter(
+    (exception) => exception.date === date,
+  );
+}
+
+function applyExceptions(
+  windows: BookingWindow[],
+  exceptions: AvailabilityException[],
+  date: string,
+  timezone: string,
+): BookingWindow[] {
+  const dateExceptions = getExceptionsForDate(
+    exceptions,
+    date,
+  );
+
+  if (dateExceptions.length === 0) {
+    return windows;
+  }
+
+  if (
+    dateExceptions.some(
+      (exception) => exception.type === "unavailable",
+    )
+  ) {
+    return [];
+  }
+
+  const customHours = dateExceptions.filter(
+    (exception) =>
+      exception.type === "custom-hours" &&
+      exception.startTime &&
+      exception.endTime,
+  );
+
+  if (customHours.length === 0) {
+    return windows;
+  }
+
+  return customHours.flatMap((exception) => {
+    const customWindow = createBookingWindow(
+      date,
+      exception.startTime!,
+      exception.endTime!,
+      timezone,
+    );
+
+    return windows
+      .filter(
+        (window) =>
+          window.start < customWindow.end &&
+          window.end > customWindow.start,
+      )
+      .map((window) => ({
+        start:
+          window.start > customWindow.start
+            ? window.start
+            : customWindow.start,
+        end:
+          window.end < customWindow.end
+            ? window.end
+            : customWindow.end,
+        timezone: window.timezone,
+      }));
+  });
+}
+
+function sortAndMergeWindows(
+  windows: BookingWindow[],
+): BookingWindow[] {
+  const sorted = [...windows].sort(
+    (a, b) =>
+      a.start.getTime() - b.start.getTime(),
+  );
+
+  const merged: BookingWindow[] = [];
+
+  for (const window of sorted) {
+    const previous = merged[merged.length - 1];
+
+    if (!previous) {
+      merged.push({ ...window });
+      continue;
+    }
+
+    if (
+      window.start.getTime() <=
+      previous.end.getTime()
+    ) {
+      if (
+        window.end.getTime() >
+        previous.end.getTime()
+      ) {
+        previous.end = window.end;
+      }
+
+      continue;
+    }
+
+    merged.push({ ...window });
+  }
+
+  return merged;
+}
+
+export function calculateAvailabilityWindows(
+  request: SlotGenerationRequest,
+  rules: AvailabilityRule[],
+): BookingWindow[] {
+  const matchingRules = getRulesForDate(
+    rules,
+    request.date,
+    request.timezone,
+  );
+
+  const regularWindows = matchingRules.map((rule) =>
+    createBookingWindow(
+      request.date,
+      rule.startTime,
+      rule.endTime,
+      rule.timezone || request.timezone,
+    ),
+  );
+
+  const windowsWithExceptions = applyExceptions(
+    regularWindows,
+    request.exceptions,
+    request.date,
+    request.timezone,
+  );
+
+  return sortAndMergeWindows(
+    windowsWithExceptions,
+  );
+}
+
+export function filterAvailabilityWindowsByRequest(
+  windows: BookingWindow[],
+  request: SlotGenerationRequest,
+): BookingWindow[] {
+  return windows.filter((window) => {
+    const requestStart = new Date(
+      request.date + "T00:00:00.000Z",
+    );
+
+    const requestEnd = new Date(
+      request.date + "T23:59:59.999Z",
+    );
+
+    return (
+      window.end > requestStart &&
+      window.start < requestEnd
+    );
+  });
+}
