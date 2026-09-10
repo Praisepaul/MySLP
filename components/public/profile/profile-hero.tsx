@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Globe2 } from "lucide-react";
 import { therapistProfile } from "@/lib/config/therapist-profile";
@@ -44,9 +45,16 @@ export function ProfileHero() {
         </div>
 
         <div className="mx-auto w-full max-w-md lg:justify-self-end">
-          <div className="aspect-[4/5] overflow-hidden rounded-3xl border bg-muted shadow-sm">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border bg-muted shadow-sm">
             {therapistProfile.profileImage ? (
-              <img src={therapistProfile.profileImage} alt={therapistProfile.name ? `${therapistProfile.name}, ${therapistProfile.professionalTitle}` : "Therapist profile"} className="h-full w-full object-cover" />
+              <Image
+                src={therapistProfile.profileImage}
+                alt={therapistProfile.name ? `${therapistProfile.name}, ${therapistProfile.professionalTitle}` : "Therapist profile"}
+                fill
+                sizes="(max-width: 1024px) 100vw, 32rem"
+                className="object-cover"
+                priority
+              />
             ) : (
               <div className="flex h-full items-center justify-center p-8 text-center">
                 <div>
