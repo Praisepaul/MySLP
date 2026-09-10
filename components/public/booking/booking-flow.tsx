@@ -7,7 +7,6 @@ import { BookingDateTimePicker } from "./booking-date-time-picker";
 import { BookingDetailsForm, type BookingDetails } from "./booking-details-form";
 import { BookingServicePicker } from "./booking-service-picker";
 import { BookingSummary } from "./booking-summary";
-import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/ui/page-container";
 import { getBookableSlots } from "@/lib/booking/booking-engine";
 import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
