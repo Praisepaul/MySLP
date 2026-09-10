@@ -41,7 +41,12 @@ export function AppointmentReschedule({ appointment, service }: AppointmentResch
       if (!response.ok) throw new Error(data.error ?? "We couldn't check availability.");
       const nextSlotsByDate: Record<string, BookableSlot[]> = {};
       Object.entries(data.slotsByDate as Record<string, AvailabilitySlotResponse[]>).forEach(([date, slots]) => {
-        nextSlotsByDate[date] = slots.map((slot) => ({ start: new Date(slot.start), end: new Date(slot.end) }));
+        nextSlotsByDate[date] = slots.map((slot) => ({
+          start: new Date(slot.start),
+          end: new Date(slot.end),
+          timezone,
+          serviceId: service.id,
+        }));
       });
       setDates(data.dates as string[]);
       setSlotsByDate(nextSlotsByDate);
