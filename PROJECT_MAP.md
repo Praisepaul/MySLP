@@ -440,7 +440,7 @@ This is a scheduling system, not an electronic health record. Collect only infor
 - Phase 5 — Booking engine — complete
 - Phase 6 — Patient booking experience — complete
 - Phase 7 — Appointment management — complete; locally validated with MongoDB Atlas
-- Phase 8 — Patient calendar support — complete; local validation next
+- Phase 8 — Patient calendar support — complete; locally validated
 - Phase 9 — Google Calendar integration
 - Phase 10 — Google Meet
 - Phase 11 — Admin appointment management
@@ -506,7 +506,7 @@ Validation:
 
 # Completion ledger — Phase 8
 
-Status: **Implemented — local validation pending**
+Status: **Complete — locally validated**
 
 Created:
 
@@ -531,10 +531,10 @@ Important new UI component:
 
 - `CalendarActions`
 
-Validation required before marking Phase 8 production-ready:
+Validation:
 
-- `npm run lint`
-- `npx tsc --noEmit`
-- `npm run build`
-- `git diff --check`
-- Manual Google Calendar, Outlook and `.ics` smoke tests.
+- Local `npm run lint` passed.
+- Local `npx tsc --noEmit` passed.
+- Local `npm run build` passed.
+- Local `git diff --check` passed.
+- User confirmed Google Calendar, Outlook and `.ics` calendar options work.
