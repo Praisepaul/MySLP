@@ -3,8 +3,8 @@
 ## Current phases
 
 - Phase 9: Therapist Google Calendar OAuth + FreeBusy availability — complete.
-- Phase 9.1: Live MongoDB availability synchronization — complete in code; 3-second visible-tab revision polling.
-- Phase 10: Therapist Google Calendar event creation/cancellation projection — implemented; local OAuth reauthorization and end-to-end validation required.
+- Phase 9.1: Live MongoDB availability synchronization — implemented with 3-second visible-tab revision polling.
+- Phase 10: Therapist Google Calendar event creation/cancellation projection — implemented; requires therapist OAuth reauthorization and local end-to-end validation.
 
 ## Booking architecture
 
