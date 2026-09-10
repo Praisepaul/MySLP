@@ -1,9 +1,15 @@
-import type { ClientSession } from "mongodb";
+import type { ClientSession, ObjectId } from "mongodb";
 import type { AppointmentDocument, AppointmentPublicView } from "@/lib/appointments/appointment-types";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 
 const appointmentsCollection = "appointments";
 const bookingLocksCollection = "appointment_booking_locks";
+
+type BookingLockDocument = {
+  _id?: ObjectId;
+  bucketStart: Date;
+  confirmationToken: string;
+};
 
 export async function ensureAppointmentIndexes() {
   const db = await getMongoDb();
@@ -37,6 +43,17 @@ export async function findActiveAppointmentsOverlapping(startAt: Date, endAt: Da
     startAt: { $lt: endAt },
     endAt: { $gt: startAt },
   }).toArray();
+}
+
+export async function getBookingLocksRevision(): Promise<string> {
+  const db = await getMongoDb();
+  const collection = db.collection<BookingLockDocument>(bookingLocksCollection);
+  const [count, latest] = await Promise.all([
+    collection.countDocuments(),
+    collection.findOne({}, { projection: { _id: 1 }, sort: { _id: -1 } }),
+  ]);
+
+  return `${count}:${latest?._id?.toHexString() ?? "none"}`;
 }
 
 export function toAppointmentPublicView(appointment: AppointmentDocument): AppointmentPublicView {
