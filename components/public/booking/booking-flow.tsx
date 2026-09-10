@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { CalendarCheck2, CheckCircle2, ShieldCheck } from "lucide-react";
+import { CalendarCheck2, ShieldCheck } from "lucide-react";
+import { BookingConfirmation } from "./booking-confirmation";
 import { BookingDateTimePicker } from "./booking-date-time-picker";
 import { BookingDetailsForm, type BookingDetails } from "./booking-details-form";
 import { BookingServicePicker } from "./booking-service-picker";
@@ -9,6 +10,7 @@ import { BookingSummary } from "./booking-summary";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/ui/page-container";
 import { getBookableSlots } from "@/lib/booking/booking-engine";
+import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
 import type { BookableSlot } from "@/lib/booking/slot-types";
 import { services } from "@/lib/config/services";
 
@@ -45,7 +47,7 @@ function Stepper({ step }: { step: BookingStep }) {
           const current = step === number;
           return (
             <li key={label} className="min-w-0">
-              <div className="flex items-center gap-2"><span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${complete || current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{complete ? <CheckCircle2 aria-hidden="true" className="size-4" /> : number}</span><span className={`hidden truncate text-xs font-medium sm:block ${current ? "text-foreground" : "text-muted-foreground"}`}>{label}</span></div>
+              <div className="flex items-center gap-2"><span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${complete || current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{complete ? "✓" : number}</span><span className={`hidden truncate text-xs font-medium sm:block ${current ? "text-foreground" : "text-muted-foreground"}`}>{label}</span></div>
               <div className={`mt-2 h-1 rounded-full ${number <= step ? "bg-primary" : "bg-muted"}`} />
             </li>
           );
@@ -64,12 +66,15 @@ export function BookingFlow() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<BookableSlot | null>(null);
   const [details, setDetails] = useState<BookingDetails>({ name: "", email: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [appointment, setAppointment] = useState<AppointmentPublicView | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const service = useMemo(() => activeServices.find((item) => item.id === serviceId) ?? null, [serviceId]);
 
-  const { dates, slotsByDate, error } = useMemo(() => {
+  const { dates, slotsByDate, availabilityError } = useMemo(() => {
     if (!service || !timezone) {
-      return { dates: [], slotsByDate: {} as Record<string, BookableSlot[]>, error: null };
+      return { dates: [], slotsByDate: {} as Record<string, BookableSlot[]>, availabilityError: null };
     }
 
     const upcomingDates = getUpcomingDates(timezone, 14);
@@ -89,7 +94,7 @@ export function BookingFlow() {
     return {
       dates: upcomingDates,
       slotsByDate: nextSlots,
-      error: calculationError ? "We couldn't calculate every availability window. Please try another timezone or date." : null,
+      availabilityError: calculationError ? "We couldn't calculate every availability window. Please try another timezone or date." : null,
     };
   }, [service, timezone]);
 
@@ -100,12 +105,49 @@ export function BookingFlow() {
     ? selectedSlot
     : null;
 
+  async function handleAppointmentCreation() {
+    if (!service || !effectiveSelectedSlot || submitting) return;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceId: service.id,
+          startAt: effectiveSelectedSlot.start.toISOString(),
+          timezone,
+          name: details.name,
+          email: details.email,
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 409) {
+          setError(data.error ?? "That time is no longer available. Please choose another slot.");
+          setSelectedSlot(null);
+          setStep(2);
+          return;
+        }
+        throw new Error(data.error ?? "We couldn't complete the booking. Please try again.");
+      }
+      setAppointment(data.appointment as AppointmentPublicView);
+      setStep(5);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "We couldn't complete the booking. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (!service || activeServices.length === 0) {
     return <div className="py-20 sm:py-28"><PageContainer size="narrow"><div className="rounded-3xl border border-dashed p-8 text-center sm:p-12"><CalendarCheck2 aria-hidden="true" className="mx-auto size-8 text-muted-foreground" /><h1 className="mt-4 text-2xl font-semibold">Booking is not available yet</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Please check back soon or contact the practice directly.</p></div></PageContainer></div>;
   }
 
-  if (step === 5) {
-    return <div className="py-20 sm:py-28"><PageContainer size="narrow"><div className="text-center"><div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CheckCircle2 aria-hidden="true" className="size-7" /></div><p className="mt-6 text-sm font-medium text-muted-foreground">Booking preview complete</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">You’re all set</h1><p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">Your session details are ready. The next phase will connect this flow to appointment creation, confirmation emails and calendar support.</p><Button className="mt-8" variant="outline" onClick={() => setStep(4)}>Back to review</Button></div></PageContainer></div>;
+  if (step === 5 && appointment) {
+    return <BookingConfirmation appointment={appointment} />;
   }
 
   return (
@@ -114,11 +156,11 @@ export function BookingFlow() {
         <div className="mb-10 text-center sm:mb-12"><div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CalendarCheck2 aria-hidden="true" className="size-6" /></div><p className="mt-5 text-sm font-medium text-muted-foreground">Grace Sessions</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Book an appointment</h1><p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">A simple, private booking experience. No account required.</p></div>
         <div className="rounded-3xl border bg-background p-5 shadow-sm sm:p-8 lg:p-10">
           <Stepper step={step} />
-          {error && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
-          {step === 1 && <BookingServicePicker services={activeServices} selectedServiceId={serviceId} onSelect={setServiceId} onContinue={() => setStep(2)} />}
-          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={false} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); }} onSlotSelect={setSelectedSlot} onTimezoneChange={(value) => { setTimezoneOverride(value); setSelectedDate(null); setSelectedSlot(null); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
+          {(error || availabilityError) && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error ?? availabilityError}</div>}
+          {step === 1 && <BookingServicePicker services={activeServices} selectedServiceId={serviceId} onSelect={(id) => { setServiceId(id); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onContinue={() => setStep(2)} />}
+          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={false} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); setError(null); }} onSlotSelect={(slot) => { setSelectedSlot(slot); setError(null); }} onTimezoneChange={(value) => { setTimezoneOverride(value); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
           {step === 3 && <BookingDetailsForm details={details} onChange={setDetails} onBack={() => setStep(2)} onContinue={() => setStep(4)} />}
-          {step === 4 && effectiveSelectedSlot && <BookingSummary service={service} slot={effectiveSelectedSlot} timezone={timezone} details={details} onBack={() => setStep(3)} onFinish={() => setStep(5)} />}
+          {step === 4 && effectiveSelectedSlot && <BookingSummary service={service} slot={effectiveSelectedSlot} timezone={timezone} details={details} submitting={submitting} onBack={() => setStep(3)} onFinish={handleAppointmentCreation} />}
         </div>
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck aria-hidden="true" className="size-4" /> Only scheduling details are collected.</div>
       </PageContainer>
