@@ -6,10 +6,12 @@ import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 const appointmentsCollection = "appointments";
 const bookingLocksCollection = "appointment_booking_locks";
 const availabilityRevisionCollection = "availability_revisions";
+const appointmentRevisionCollection = "appointment_revisions";
 const availabilityRevisionId = "public-booking";
+const appointmentRevisionId = "admin-appointments";
 
 type BookingLockDocument = { _id?: ObjectId; bucketStart: Date; confirmationToken: string };
-type AvailabilityRevisionDocument = { _id: typeof availabilityRevisionId; revision: string; updatedAt: Date };
+type RevisionDocument = { _id: string; revision: string; updatedAt: Date };
 
 export async function ensureAppointmentIndexes() {
   const db = await getMongoDb();
@@ -61,13 +63,39 @@ export async function findAdminAppointments(input: {
   return db.collection<AppointmentDocument>(appointmentsCollection).find(filter).sort({ startAt: 1 }).limit(Math.min(input.limit ?? 200, 500)).toArray();
 }
 
+function createRevision() {
+  return createHash("sha256").update(`${Date.now()}:${randomUUID()}`).digest("hex");
+}
+
+export async function getAppointmentRevision(): Promise<string> {
+  const db = await getMongoDb();
+  const revision = await db.collection<RevisionDocument>(appointmentRevisionCollection).findOne(
+    { _id: appointmentRevisionId },
+    { projection: { revision: 1 } },
+  );
+  return revision?.revision ?? "initial";
+}
+
+export async function bumpAppointmentRevision(session?: ClientSession): Promise<string> {
+  const db = await getMongoDb();
+  const revision = createRevision();
+  await db.collection<RevisionDocument>(appointmentRevisionCollection).updateOne(
+    { _id: appointmentRevisionId },
+    { $set: { revision, updatedAt: new Date() } },
+    { upsert: true, ...(session ? { session } : {}) },
+  );
+  return revision;
+}
+
 export async function updateAppointmentStatus(input: { confirmationToken: string; status: Extract<AppointmentStatus, "completed" | "no_show"> }) {
   const db = await getMongoDb();
-  return db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
+  const result = await db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
     { confirmationToken: input.confirmationToken, status: "confirmed" },
     { $set: { status: input.status, updatedAt: new Date() } },
     { returnDocument: "after" },
   );
+  if (result) await bumpAppointmentRevision();
+  return result;
 }
 
 function createAvailabilityRevision() {
@@ -76,7 +104,7 @@ function createAvailabilityRevision() {
 
 export async function getBookingLocksRevision(): Promise<string> {
   const db = await getMongoDb();
-  const revision = await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).findOne(
+  const revision = await db.collection<RevisionDocument>(availabilityRevisionCollection).findOne(
     { _id: availabilityRevisionId },
     { projection: { revision: 1 } },
   );
@@ -93,7 +121,7 @@ export async function getBookingLocksRevision(): Promise<string> {
 export async function bumpBookingLocksRevision(session: ClientSession): Promise<string> {
   const db = await getMongoDb();
   const revision = createAvailabilityRevision();
-  await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).updateOne(
+  await db.collection<RevisionDocument>(availabilityRevisionCollection).updateOne(
     { _id: availabilityRevisionId },
     { $set: { revision, updatedAt: new Date() } },
     { upsert: true, session },
@@ -104,7 +132,7 @@ export async function bumpBookingLocksRevision(session: ClientSession): Promise<
 export async function bumpPublicAvailabilityRevision(): Promise<string> {
   const db = await getMongoDb();
   const revision = createAvailabilityRevision();
-  await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).updateOne(
+  await db.collection<RevisionDocument>(availabilityRevisionCollection).updateOne(
     { _id: availabilityRevisionId },
     { $set: { revision, updatedAt: new Date() } },
     { upsert: true },
@@ -130,16 +158,19 @@ export async function updateGoogleCalendarSyncStatus(input: {
   const update: { $set: Record<string, unknown>; $unset?: Record<string, ""> } = { $set: set };
   if (input.error) set["googleCalendar.lastSyncError"] = input.error;
   else update.$unset = { "googleCalendar.lastSyncError": "" };
-  await db.collection<AppointmentDocument>(appointmentsCollection).updateOne({ confirmationToken: input.confirmationToken }, update);
+  const result = await db.collection<AppointmentDocument>(appointmentsCollection).updateOne({ confirmationToken: input.confirmationToken }, update);
+  if (result.modifiedCount > 0) await bumpAppointmentRevision();
 }
 
 export async function updateAppointmentSchedule(input: { confirmationToken: string; startAt: Date; endAt: Date }) {
   const db = await getMongoDb();
-  return db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
+  const result = await db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
     { confirmationToken: input.confirmationToken, status: "confirmed" },
     { $set: { startAt: input.startAt, endAt: input.endAt, updatedAt: new Date() } },
     { returnDocument: "after" },
   );
+  if (result) await bumpAppointmentRevision();
+  return result;
 }
 
 export function toAppointmentPublicView(appointment: AppointmentDocument): AppointmentPublicView {
@@ -174,6 +205,7 @@ export async function cancelAppointment(confirmationToken: string): Promise<Appo
     cancelled = result;
     await db.collection(bookingLocksCollection).deleteMany({ confirmationToken }, { session: transactionSession });
     await bumpBookingLocksRevision(transactionSession);
+    await bumpAppointmentRevision(transactionSession);
   }));
   return cancelled;
 }
