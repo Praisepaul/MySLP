@@ -4,6 +4,7 @@ import { getMongoDb } from "@/lib/db/mongodb";
 
 const collectionName = "google_calendar_connections";
 const busyCacheCollectionName = "google_calendar_busy_cache";
+const discoveredConflictCollectionName = "google_calendar_discovered_conflicts";
 
 type GoogleCalendarBusyCacheDocument = {
   _id: typeof googleCalendarConnectionId;
@@ -12,6 +13,14 @@ type GoogleCalendarBusyCacheDocument = {
   checkedTo: Date;
   busyIntervals: GoogleCalendarBusyInterval[];
   updatedAt: Date;
+};
+
+type GoogleCalendarDiscoveredConflictDocument = {
+  _id: string;
+  calendarId: string;
+  start: Date;
+  end: Date;
+  discoveredAt: Date;
 };
 
 export async function getGoogleCalendarConnection(): Promise<GoogleCalendarConnectionDocument | null> {
@@ -24,7 +33,15 @@ export async function saveGoogleCalendarConnection(input: { calendarId: string; 
   const now = new Date();
   await db.collection<GoogleCalendarConnectionDocument>(collectionName).updateOne(
     { _id: googleCalendarConnectionId },
-    { $set: { provider: "google", calendarId: input.calendarId, encryptedRefreshToken: input.encryptedRefreshToken, updatedAt: now }, $setOnInsert: { createdAt: now } },
+    {
+      $set: {
+        provider: "google",
+        calendarId: input.calendarId,
+        encryptedRefreshToken: input.encryptedRefreshToken,
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now },
+    },
     { upsert: true },
   );
 }
@@ -34,6 +51,7 @@ export async function deleteGoogleCalendarConnection(): Promise<void> {
   await Promise.all([
     db.collection<GoogleCalendarConnectionDocument>(collectionName).deleteOne({ _id: googleCalendarConnectionId }),
     db.collection<GoogleCalendarBusyCacheDocument>(busyCacheCollectionName).deleteOne({ _id: googleCalendarConnectionId }),
+    db.collection<GoogleCalendarDiscoveredConflictDocument>(discoveredConflictCollectionName).deleteMany({ calendarId: googleCalendarConnectionId }),
   ]);
 }
 
@@ -52,7 +70,15 @@ export async function saveGoogleCalendarBusyCache(input: {
   const db = await getMongoDb();
   await db.collection<GoogleCalendarBusyCacheDocument>(busyCacheCollectionName).updateOne(
     { _id: googleCalendarConnectionId },
-    { $set: { calendarId: input.calendarId, checkedFrom: input.checkedFrom, checkedTo: input.checkedTo, busyIntervals: input.busyIntervals, updatedAt: new Date() } },
+    {
+      $set: {
+        calendarId: input.calendarId,
+        checkedFrom: input.checkedFrom,
+        checkedTo: input.checkedTo,
+        busyIntervals: input.busyIntervals,
+        updatedAt: new Date(),
+      },
+    },
     { upsert: true },
   );
 }
@@ -66,4 +92,50 @@ export async function getGoogleCalendarBusyCache(start: Date, end: Date): Promis
   });
   if (!cached) return null;
   return cached.busyIntervals.filter((interval) => interval.start < end && interval.end > start);
+}
+
+function getDiscoveredConflictId(calendarId: string, start: Date, end: Date) {
+  return `${calendarId}:${start.toISOString()}:${end.toISOString()}`;
+}
+
+/** Stores a conflict learned from a live booking-time Google check. */
+export async function saveDiscoveredGoogleCalendarConflict(input: {
+  calendarId: string;
+  start: Date;
+  end: Date;
+}): Promise<boolean> {
+  const db = await getMongoDb();
+  const result = await db.collection<GoogleCalendarDiscoveredConflictDocument>(discoveredConflictCollectionName).updateOne(
+    { _id: getDiscoveredConflictId(input.calendarId, input.start, input.end) },
+    {
+      $setOnInsert: {
+        calendarId: input.calendarId,
+        start: input.start,
+        end: input.end,
+        discoveredAt: new Date(),
+      },
+    },
+    { upsert: true },
+  );
+  return result.upsertedCount > 0;
+}
+
+export async function getDiscoveredGoogleCalendarConflicts(start: Date, end: Date): Promise<GoogleCalendarBusyInterval[]> {
+  const db = await getMongoDb();
+  const conflicts = await db.collection<GoogleCalendarDiscoveredConflictDocument>(discoveredConflictCollectionName).find({
+    calendarId: googleCalendarConnectionId,
+    start: { $lt: end },
+    end: { $gt: start },
+  }).toArray();
+  return conflicts.map((conflict) => ({ start: conflict.start, end: conflict.end }));
+}
+
+/** Removes learned conflicts that were covered by a fresh Google sync. */
+export async function clearDiscoveredGoogleCalendarConflicts(start: Date, end: Date): Promise<void> {
+  const db = await getMongoDb();
+  await db.collection<GoogleCalendarDiscoveredConflictDocument>(discoveredConflictCollectionName).deleteMany({
+    calendarId: googleCalendarConnectionId,
+    start: { $lt: end },
+    end: { $gt: start },
+  });
 }
