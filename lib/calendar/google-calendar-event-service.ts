@@ -21,6 +21,12 @@ function getDeterministicEventId(confirmationToken: string) {
   return confirmationToken.replace(/[^a-z0-9]/gi, "").toLowerCase();
 }
 
+function getGoogleErrorStatus(error: unknown) {
+  if (!error || typeof error !== "object" || !("code" in error)) return null;
+  const code = Number(error.code);
+  return Number.isFinite(code) ? code : null;
+}
+
 export async function createGoogleCalendarAppointmentEvent(appointment: AppointmentDocument): Promise<string | null> {
   const calendar = await getAuthenticatedGoogleCalendar();
   if (!calendar) return null;
@@ -40,8 +46,7 @@ export async function createGoogleCalendarAppointmentEvent(appointment: Appointm
     });
     return response.data.id ?? eventId;
   } catch (error) {
-    const status = error && typeof error === "object" && "code" in error ? Number(error.code) : null;
-    if (status === 409) return eventId;
+    if (getGoogleErrorStatus(error) === 409) return eventId;
     throw error;
   }
 }
@@ -52,8 +57,7 @@ export async function deleteGoogleCalendarAppointmentEvent(eventId: string): Pro
   try {
     await calendar.events.delete({ calendarId: googleCalendarId, eventId, sendUpdates: "none" });
   } catch (error) {
-    const status = error && typeof error === "object" && "code" in error ? Number(error.code) : null;
-    if (status === 404) return;
+    if (getGoogleErrorStatus(error) === 404) return;
     throw error;
   }
 }
