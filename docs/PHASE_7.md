@@ -36,8 +36,6 @@ MongoDB collections:
 
 The lock collection uses a unique 30-minute UTC bucket index. The server creates lock documents and the appointment in one MongoDB transaction. This gives overlapping bookings a database-enforced collision point instead of relying only on the client's displayed availability.
 
-MongoDB transactions require a deployment that supports multi-document transactions; MongoDB documents transactions as an atomic mechanism for coordinated writes. citeturn0search0turn0search3
-
 ### Server booking service
 
 - `lib/appointments/appointment-service.ts`
@@ -120,8 +118,6 @@ Create a local `.env.local` using `.env.example`:
 MONGODB_URI=<MongoDB Atlas connection string>
 MONGODB_DB=grace_sessions
 ```
-
-The MongoDB Node.js driver is the official application driver used for Atlas connectivity. citeturn0search1turn0search6
 
 No MongoDB credentials are committed to the repository.
 
