@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import type { ClientSession, ObjectId } from "mongodb";
-import type { AppointmentDocument, AppointmentPublicView } from "@/lib/appointments/appointment-types";
+import type { AppointmentDocument, AppointmentPublicView, GoogleCalendarSyncStatus } from "@/lib/appointments/appointment-types";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 
 const appointmentsCollection = "appointments";
@@ -58,6 +58,27 @@ export async function bumpBookingLocksRevision(session: ClientSession): Promise<
     { upsert: true, session },
   );
   return revision;
+}
+
+export async function updateGoogleCalendarSyncStatus(input: {
+  confirmationToken: string;
+  syncStatus: GoogleCalendarSyncStatus;
+  eventId?: string;
+  error?: string;
+}) {
+  const db = await getMongoDb();
+  const now = new Date();
+  const set: Record<string, unknown> = {
+    "googleCalendar.syncStatus": input.syncStatus,
+    "googleCalendar.lastSyncedAt": now,
+  };
+  if (input.eventId) set["googleCalendar.eventId"] = input.eventId;
+  if (input.error) set["googleCalendar.lastSyncError"] = input.error;
+  else set["googleCalendar.lastSyncError"] = undefined;
+  await db.collection<AppointmentDocument>(appointmentsCollection).updateOne(
+    { confirmationToken },
+    { $set: set },
+  );
 }
 
 export function toAppointmentPublicView(appointment: AppointmentDocument): AppointmentPublicView {
