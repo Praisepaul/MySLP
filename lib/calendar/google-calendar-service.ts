@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 import { getGoogleCalendarConfig, googleCalendarId, googleCalendarScopes } from "@/lib/calendar/google-calendar-config";
 import { decryptGoogleRefreshToken, encryptGoogleRefreshToken } from "@/lib/calendar/google-calendar-crypto";
-import { getGoogleCalendarConnection, saveGoogleCalendarConnection, getGoogleCalendarBusyCache } from "@/lib/calendar/google-calendar-repository";
+import { getGoogleCalendarConnection, saveGoogleCalendarConnection, getGoogleCalendarBusyCache, saveGoogleCalendarBusyCache } from "@/lib/calendar/google-calendar-repository";
 import type { GoogleCalendarBusyInterval } from "@/lib/calendar/google-calendar-types";
 
 function createOAuthClient() {
@@ -41,7 +41,13 @@ export async function getGoogleCalendarBusyIntervals(start: Date, end: Date): Pr
 }
 
 export async function getCachedGoogleCalendarBusyIntervals(start: Date, end: Date): Promise<GoogleCalendarBusyInterval[] | null> {
-  return getGoogleCalendarBusyCache(start, end);
+  const cached = await getGoogleCalendarBusyCache(start, end);
+  if (cached) return cached;
+
+  const busyIntervals = await getGoogleCalendarBusyIntervals(start, end);
+  if (busyIntervals === null) return null;
+  await saveGoogleCalendarBusyCache({ calendarId: googleCalendarId, checkedFrom: start, checkedTo: end, busyIntervals });
+  return busyIntervals;
 }
 
 export async function hasGoogleCalendarConnection(): Promise<boolean> {
