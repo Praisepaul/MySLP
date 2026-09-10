@@ -31,7 +31,8 @@ Grace Session Scheduler is a lightweight multilingual appointment scheduling app
 - Lucide icons
 - MongoDB Node.js driver
 - MongoDB Atlas
-- Google Calendar / Google Meet later
+- Google Calendar API / OAuth 2.0
+- Google Meet later
 - Formspree
 - Transactional email provider later
 
@@ -49,7 +50,7 @@ Public UI
 Admin UI
   ├── dashboard
   ├── appointments (later)
-  ├── calendar (later)
+  ├── Google Calendar connection
   ├── availability
   ├── services
   ├── profile (later)
@@ -66,9 +67,12 @@ Appointment infrastructure: lib/appointments/ + lib/db/
   ├── idempotency
   └── transaction-backed booking locks
 
-Calendar support: lib/calendar/ + app/api/appointments/[confirmationToken]/ics/
+Calendar infrastructure: lib/calendar/
   ├── patient calendar composer links
-  └── token-protected ICS export
+  ├── token-protected ICS export
+  ├── Google OAuth connection
+  ├── encrypted therapist refresh token storage
+  └── Google free/busy conflict lookup
 ```
 
 # Public shell
@@ -282,6 +286,7 @@ Booking service:
   - conflict lookup
   - idempotency
   - transaction-backed booking locks
+  - Google Calendar conflict lookup when connected
 
 Database:
 
@@ -293,6 +298,7 @@ Collections:
 
 - `appointments`
 - `appointment_booking_locks`
+- `google_calendar_connections`
 
 Appointment statuses:
 
@@ -302,7 +308,7 @@ confirmed → no_show
 confirmed → cancelled
 ```
 
-The public API never trusts client-side availability. The server validates the service, timezone, requested start time, current availability and current appointment conflicts before writing. A unique 30-minute UTC lock bucket is inserted for every interval touched by the appointment inside the same transaction as the appointment document. Cancellation releases those locks transactionally.
+The public API never trusts client-side availability. The server validates the service, timezone, requested start time, current availability, current appointment conflicts and, when configured, Google Calendar free/busy conflicts before writing. A unique 30-minute UTC lock bucket is inserted for every interval touched by the appointment inside the same transaction as the appointment document. Cancellation releases those locks transactionally.
 
 API routes:
 
@@ -324,6 +330,7 @@ Required variables after setup:
 
 - `MONGODB_URI`
 - `MONGODB_DB` (defaults to `grace_sessions`)
+- Google Calendar variables documented in `docs/PHASE_9.md`
 
 # Patient calendar support — Phase 8 complete
 
@@ -355,6 +362,75 @@ Calendar actions are shown for confirmed appointments on both booking confirmati
 
 Calendar event data intentionally contains only scheduling information: service name, appointment start/end and a short description. No clinical information is included.
 
+# Therapist Google Calendar — Phase 9 implemented
+
+Google Calendar infrastructure:
+
+- `lib/calendar/google-calendar-config.ts`
+  - `googleCalendarScopes`
+  - `getGoogleCalendarConfig`
+  - `googleCalendarId`
+- `lib/calendar/google-calendar-types.ts`
+  - `googleCalendarConnectionId`
+  - `GoogleCalendarConnectionDocument`
+  - `GoogleCalendarConnectionStatus`
+  - `GoogleCalendarBusyInterval`
+- `lib/calendar/google-calendar-crypto.ts`
+  - `encryptGoogleRefreshToken`
+  - `decryptGoogleRefreshToken`
+- `lib/calendar/google-calendar-repository.ts`
+  - `getGoogleCalendarConnection`
+  - `saveGoogleCalendarConnection`
+  - `deleteGoogleCalendarConnection`
+  - `getGoogleCalendarConnectionStatus`
+- `lib/calendar/google-calendar-service.ts`
+  - `getGoogleCalendarAuthorizationUrl`
+  - `connectGoogleCalendar`
+  - `getGoogleCalendarBusyIntervals`
+  - `hasGoogleCalendarConnection`
+
+Temporary setup access:
+
+- `lib/admin/setup-auth.ts`
+  - signed setup cookie
+  - OAuth state cookie
+  - setup configuration checks
+
+This temporary setup gate exists because full admin authentication is intentionally a later phase. It must be replaced by real admin authentication before production deployment.
+
+Admin UI:
+
+- `app/admin/calendar/page.tsx`
+- `components/admin/calendar/google-calendar-card.tsx`
+
+Admin API:
+
+- `app/api/admin/google-calendar/unlock/route.ts`
+- `app/api/admin/google-calendar/connect/route.ts`
+- `app/api/admin/google-calendar/callback/route.ts`
+- `app/api/admin/google-calendar/status/route.ts`
+- `app/api/admin/google-calendar/disconnect/route.ts`
+- `app/api/admin/google-calendar/sync/route.ts`
+
+OAuth design:
+
+- Google OAuth 2.0 web-server flow.
+- Offline access with encrypted refresh-token storage.
+- Minimal Phase 9 scope: `calendar.freebusy`.
+- Therapist primary Google Calendar is used in Phase 9.
+- Google Calendar busy intervals are converted to booking conflicts.
+- If a configured Google Calendar cannot be checked during final booking validation, booking fails closed rather than risking a double booking.
+
+Manual sync:
+
+- Admin can explicitly check the next seven days of Google Calendar free/busy data.
+- No cron job or background polling is introduced.
+- Calendar event details are not copied into MongoDB.
+
+Documentation:
+
+- `docs/PHASE_9.md`
+
 # Admin shell
 
 - `components/admin/layout/admin-shell.tsx`
@@ -369,6 +445,7 @@ Current admin pages:
 - `app/admin/page.tsx`
 - `app/admin/services/page.tsx`
 - `app/admin/availability/page.tsx`
+- `app/admin/calendar/page.tsx`
 
 Admin appointment CRUD intentionally remains a later phase so authentication/authorization and operational controls can be designed together.
 
@@ -386,8 +463,10 @@ Global states:
 
 Therapist:
 
-- Google Calendar connection.
-- Manual synchronization.
+- Google Calendar OAuth connection.
+- Encrypted refresh-token persistence.
+- Primary-calendar free/busy conflict checks.
+- Manual seven-day synchronization/check.
 - No cron jobs.
 
 Patient:
@@ -404,11 +483,12 @@ Patient:
 - Public booking displays times in the selected/detected patient timezone.
 - Browser timezone is detected with manual override.
 - Calendar event start/end values are exported from UTC appointment timestamps.
+- Google Calendar free/busy requests use UTC boundaries.
 - DST/timezone edge cases require automated tests before production.
 
 # Privacy architecture
 
-This is a scheduling system, not an electronic health record. Collect only information required for appointment scheduling. Do not ask patients to submit clinical details during booking or place clinical details into calendar events.
+This is a scheduling system, not an electronic health record. Collect only information required for appointment scheduling. Do not ask patients to submit clinical details during booking or place clinical details into calendar events. Google Calendar integration stores only the encrypted therapist refresh token and connection metadata; calendar event details are used transiently for free/busy checks.
 
 # UI/UX principles
 
@@ -441,7 +521,7 @@ This is a scheduling system, not an electronic health record. Collect only infor
 - Phase 6 — Patient booking experience — complete
 - Phase 7 — Appointment management — complete; locally validated with MongoDB Atlas
 - Phase 8 — Patient calendar support — complete; locally validated
-- Phase 9 — Google Calendar integration
+- Phase 9 — Google Calendar integration — implemented; user configuration and validation pending
 - Phase 10 — Google Meet
 - Phase 11 — Admin appointment management
 - Phase 12 — Profile CMS
@@ -538,3 +618,72 @@ Validation:
 - Local `npm run build` passed.
 - Local `git diff --check` passed.
 - User confirmed Google Calendar, Outlook and `.ics` calendar options work.
+
+# Completion ledger — Phase 9
+
+Status: **Implemented — user Google Cloud configuration and local validation pending**
+
+Created:
+
+- `lib/admin/setup-auth.ts`
+- `lib/calendar/google-calendar-types.ts`
+- `lib/calendar/google-calendar-config.ts`
+- `lib/calendar/google-calendar-crypto.ts`
+- `lib/calendar/google-calendar-repository.ts`
+- `lib/calendar/google-calendar-service.ts`
+- `app/api/admin/google-calendar/unlock/route.ts`
+- `app/api/admin/google-calendar/connect/route.ts`
+- `app/api/admin/google-calendar/callback/route.ts`
+- `app/api/admin/google-calendar/status/route.ts`
+- `app/api/admin/google-calendar/disconnect/route.ts`
+- `app/api/admin/google-calendar/sync/route.ts`
+- `components/admin/calendar/google-calendar-card.tsx`
+- `app/admin/calendar/page.tsx`
+- `docs/PHASE_9.md`
+
+Modified:
+
+- `package.json` — added `googleapis`.
+- `.env.example` — added Google Calendar OAuth/setup/encryption variables.
+- `lib/appointments/appointment-service.ts` — final booking validation now checks connected Google Calendar free/busy conflicts.
+- `PROJECT_MAP.md`
+
+Important new functions:
+
+- `getGoogleCalendarAuthorizationUrl`
+- `connectGoogleCalendar`
+- `getGoogleCalendarBusyIntervals`
+- `encryptGoogleRefreshToken`
+- `decryptGoogleRefreshToken`
+- `getGoogleCalendarConnection`
+- `saveGoogleCalendarConnection`
+- `deleteGoogleCalendarConnection`
+- `getGoogleCalendarConnectionStatus`
+- `createGoogleCalendarOAuthState`
+- `consumeGoogleCalendarOAuthState`
+
+Important new UI:
+
+- `/admin/calendar`
+- `GoogleCalendarCard`
+- Temporary setup-key gate
+- Connect/disconnect controls
+- Manual seven-day calendar check
+- Connection/error feedback
+
+User action required:
+
+- Create/configure a Google Cloud OAuth web application.
+- Enable Google Calendar API.
+- Add the local redirect URI.
+- Put Google client ID/secret and generated setup/encryption secrets into `.env.local`.
+- Restart the Next.js dev server.
+
+Validation required:
+
+- `npm install`
+- `npm run lint`
+- `npx tsc --noEmit`
+- `npm run build`
+- `git diff --check`
+- UI: unlock `/admin/calendar`, connect Google Calendar, run **Check calendar**, test a real conflicting Google Calendar event against Grace Sessions booking, then test disconnect.
