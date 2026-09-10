@@ -51,7 +51,7 @@ ADMIN
   /admin/services           services
   /admin/availability       availability
   /admin/calendar           Google Calendar connection/sync
-  /admin/appointments      Phase 11
+  /admin/appointments       appointment management
 
 BOOKING DOMAIN
   lib/booking/
@@ -78,6 +78,11 @@ CALENDAR INFRASTRUCTURE
     google-calendar-repository.ts
     google-calendar-service.ts
     google-calendar-event-service.ts
+
+ADMIN APPOINTMENT MANAGEMENT
+  app/admin/appointments/page.tsx
+  app/api/admin/appointments/route.ts
+  components/admin/appointments/admin-appointments-manager.tsx
 
 PERSISTENCE
   MongoDB collections:
@@ -296,7 +301,7 @@ Google conflicts intentionally do **not** use `appointment_booking_locks`; those
 
 ## Phase 10 — Therapist Google Calendar events + Google Meet
 
-**Calendar event lifecycle implemented and locally E2E validated. Google Meet/guest-notification enhancement now implemented; final local validation pending.**
+**Complete and end-to-end validated.**
 
 ### 10A — Calendar event projection
 
@@ -328,7 +333,7 @@ conferenceDataVersion = 1
 The service waits briefly for the asynchronously-created video entry point and stores it at:
 
 ```text
-a ppointment.googleMeet.joinUrl
+appointment.googleMeet.joinUrl
 ```
 
 Patients can see `Join Google Meet` from appointment management after the link is available.
@@ -351,7 +356,7 @@ This avoids adding unnecessary email API usage or a paid transactional provider 
 
 ### 10D — Appointment rescheduling
 
-Public rescheduling is now implemented.
+Public rescheduling is implemented and end-to-end validated.
 
 Key files:
 - `app/appointment/[confirmationToken]/reschedule/page.tsx`
@@ -370,12 +375,13 @@ Rescheduling behavior:
 8. Preserve the existing Google Meet conference.
 9. Send Calendar guest update notifications.
 10. Bump the public availability revision so other browsers refresh.
+11. Persist a changed patient timezone on the existing appointment when supplied.
 
 The old slot is not released until the MongoDB transaction succeeds.
 
-### Phase 10 environment
+## Phase 10 environment
 
-`.env.example` now includes:
+`.env.example` includes:
 
 ```env
 GOOGLE_CALENDAR_THERAPIST_EMAIL=
@@ -398,28 +404,54 @@ Current admin pages:
 - `/admin/services`
 - `/admin/availability`
 - `/admin/calendar`
+- `/admin/appointments`
 
 ## Phase 11 — Admin appointment management
 
-**Next active phase.**
+**Active — initial appointment operations implemented.**
 
-Goal: make the therapist/admin fully operational without touching source code.
+Implemented in the first Phase 11 slice:
+- admin appointment list
+- search by patient, email, service, or confirmation token
+- status filtering
+- appointment details in the admin list
+- Google Calendar sync status/error visibility
+- Google Meet join link visibility
+- open existing patient appointment-management URL
+- mark confirmed appointments as completed
+- mark confirmed appointments as no-show
+- admin cancellation using the existing transactional cancellation/lock path and Google event deletion
 
-Planned capabilities:
-- appointment list
-- day/week calendar view
-- appointment details
-- search/filter
-- create appointment manually
-- reschedule appointment
-- cancel appointment
-- mark completed
-- mark no-show
-- see Google Calendar sync status
-- safe conflict validation against MongoDB + Google Calendar
-- Google Calendar event projection for admin-created/rescheduled/cancelled appointments
+Key files:
+- `app/admin/appointments/page.tsx`
+- `components/admin/appointments/admin-appointments-manager.tsx`
+- `app/api/admin/appointments/route.ts`
+- `lib/appointments/appointment-repository.ts`
+- `lib/appointments/appointment-service.ts`
 
-Admin authentication/authorization must be designed together with operational appointment controls. The current setup-key gate is temporary and is not production authentication.
+Important functions:
+- `findAdminAppointments`
+- `updateAppointmentStatus`
+- existing `cancelAppointment`
+- existing `rescheduleAppointment`
+- existing `createAppointment`
+- existing `updateGoogleCalendarSyncStatus`
+
+Admin appointment API:
+- `GET /api/admin/appointments`
+- `PATCH /api/admin/appointments` for completed/no-show and reschedule actions
+- `DELETE /api/admin/appointments` for cancellation
+
+The initial admin API is protected by the existing temporary setup-access gate. Real admin authentication/authorization remains a production hardening requirement and is not being silently substituted with a new auth system during this slice.
+
+Remaining Phase 11 work:
+- true day/week visual calendar view
+- admin-native appointment detail view
+- admin-native availability-picker rescheduling UX
+- manual admin appointment creation UX using the existing booking engine
+- richer filtering/date navigation
+- sync/conflict operational controls
+- production admin authentication/authorization design
 
 ## Phase 12 — Profile CMS
 
