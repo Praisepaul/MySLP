@@ -1,26 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, Loader2 } from "lucide-react";
 import { BookingDateTimePicker } from "@/components/public/booking/booking-date-time-picker";
-import { Button } from "@/components/ui/button";
 import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
 import type { BookableSlot } from "@/lib/booking/slot-types";
 import type { Service } from "@/lib/config/services";
 
-interface AppointmentRescheduleProps {
-  appointment: AppointmentPublicView;
-  service: Service;
-}
+interface AppointmentRescheduleProps { appointment: AppointmentPublicView; service: Service; }
 
 function getDateStrings(timezone: string) {
   const dates: string[] = [];
   const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" });
   const today = new Date();
-  for (let index = 0; index < 14; index += 1) {
-    const date = new Date(today.getTime() + index * 24 * 60 * 60 * 1000);
-    dates.push(formatter.format(date));
-  }
+  for (let index = 0; index < 14; index += 1) dates.push(formatter.format(new Date(today.getTime() + index * 24 * 60 * 60 * 1000)));
   return dates;
 }
 
@@ -34,10 +27,9 @@ export function AppointmentReschedule({ appointment, service }: AppointmentResch
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<AppointmentPublicView | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const dateRange = useMemo(() => getDateStrings(timezone), [timezone]);
 
-  async function loadAvailability() {
+  const loadAvailability = useCallback(async () => {
     setLoading(true);
     setError(null);
     setSelectedDate(null);
@@ -53,9 +45,9 @@ export function AppointmentReschedule({ appointment, service }: AppointmentResch
     } finally {
       setLoading(false);
     }
-  }
+  }, [dateRange, service.id, timezone]);
 
-  useEffect(() => { void loadAvailability(); }, [timezone]);
+  useEffect(() => { void loadAvailability(); }, [loadAvailability]);
 
   async function handleReschedule() {
     if (!selectedSlot || saving) return;
