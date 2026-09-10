@@ -13,12 +13,13 @@ export function AppointmentManagement({ initialAppointment }: AppointmentManagem
   const [appointment, setAppointment] = useState(initialAppointment);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [renderedAt] = useState(() => Date.now());
   const start = new Date(appointment.startAt);
   const end = new Date(appointment.endAt);
   const dateLabel = new Intl.DateTimeFormat("en", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: appointment.timezone }).format(start);
   const startTime = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: appointment.timezone }).format(start);
   const endTime = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: appointment.timezone }).format(end);
-  const canCancel = appointment.status === "confirmed" && start.getTime() > Date.now();
+  const canCancel = appointment.status === "confirmed" && start.getTime() > renderedAt;
 
   async function handleCancel() {
     if (!canCancel || cancelling) return;
