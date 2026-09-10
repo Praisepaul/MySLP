@@ -193,7 +193,6 @@ export function ServiceForm({
               Patients can attend remotely.
             </p>
           </div>
-
           <Switch
             id="service-online"
             checked={values.online}
@@ -208,7 +207,6 @@ export function ServiceForm({
               Patients can attend at the practice location.
             </p>
           </div>
-
           <Switch
             id="service-in-person"
             checked={values.inPerson}
@@ -223,7 +221,6 @@ export function ServiceForm({
               Active services can appear on the public website.
             </p>
           </div>
-
           <Switch
             id="service-active"
             checked={values.active}
@@ -238,7 +235,6 @@ export function ServiceForm({
             Cancel
           </Button>
         )}
-
         <Button type="submit">
           {initialService ? "Save changes" : "Create service"}
         </Button>
