@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { CalendarCheck2, ShieldCheck } from "lucide-react";
 import { BookingConfirmation } from "./booking-confirmation";
 import { BookingDateTimePicker } from "./booking-date-time-picker";
@@ -8,13 +8,26 @@ import { BookingDetailsForm, type BookingDetails } from "./booking-details-form"
 import { BookingServicePicker } from "./booking-service-picker";
 import { BookingSummary } from "./booking-summary";
 import { PageContainer } from "@/components/ui/page-container";
-import { getBookableSlots } from "@/lib/booking/booking-engine";
 import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
 import type { BookableSlot } from "@/lib/booking/slot-types";
 import { services } from "@/lib/config/services";
 
 const activeServices = services.filter((service) => service.active).sort((a, b) => a.order - b.order);
 type BookingStep = 1 | 2 | 3 | 4 | 5;
+
+type SerializedAvailabilitySlot = {
+  start: string;
+  end: string;
+  timezone: string;
+  serviceId: string;
+};
+
+type AvailabilityState = {
+  key: string;
+  dates: string[];
+  slotsByDate: Record<string, BookableSlot[]>;
+  error: string | null;
+};
 
 function getDateParts(date: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
@@ -68,34 +81,74 @@ export function BookingFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [appointment, setAppointment] = useState<AppointmentPublicView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<AvailabilityState | null>(null);
 
   const service = useMemo(() => activeServices.find((item) => item.id === serviceId) ?? null, [serviceId]);
+  const availabilityKey = service && timezone ? `${service.id}:${timezone}` : "";
+  const upcomingDates = useMemo(() => getUpcomingDates(timezone, 14), [timezone]);
 
-  const { dates, slotsByDate, availabilityError } = useMemo(() => {
-    if (!service || !timezone) {
-      return { dates: [], slotsByDate: {} as Record<string, BookableSlot[]>, availabilityError: null };
-    }
+  useEffect(() => {
+    if (!service || !timezone) return;
 
-    const upcomingDates = getUpcomingDates(timezone, 14);
-    const now = new Date();
-    const nextSlots: Record<string, BookableSlot[]> = {};
-    let calculationError = false;
+    const key = `${service.id}:${timezone}`;
+    let cancelled = false;
 
-    for (const date of upcomingDates) {
-      try {
-        nextSlots[date] = getBookableSlots({ date, service, timezone, now }).slots;
-      } catch {
-        nextSlots[date] = [];
-        calculationError = true;
-      }
-    }
+    fetch("/api/availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serviceId: service.id, timezone, dates: upcomingDates }),
+    })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error ?? "We couldn't check availability right now. Please try again.");
+        }
+        return data as {
+          dates: string[];
+          slotsByDate: Record<string, SerializedAvailabilitySlot[]>;
+        };
+      })
+      .then((data) => {
+        if (cancelled) return;
 
-    return {
-      dates: upcomingDates,
-      slotsByDate: nextSlots,
-      availabilityError: calculationError ? "We couldn't calculate every availability window. Please try another timezone or date." : null,
+        const slotsByDate = Object.fromEntries(
+          Object.entries(data.slotsByDate).map(([date, slots]) => [
+            date,
+            slots.map((slot) => ({
+              ...slot,
+              start: new Date(slot.start),
+              end: new Date(slot.end),
+            })),
+          ]),
+        );
+
+        setAvailability({
+          key,
+          dates: data.dates,
+          slotsByDate,
+          error: null,
+        });
+      })
+      .catch((requestError) => {
+        if (cancelled) return;
+        setAvailability({
+          key,
+          dates: upcomingDates,
+          slotsByDate: Object.fromEntries(upcomingDates.map((date) => [date, []])),
+          error: requestError instanceof Error ? requestError.message : "We couldn't check availability right now. Please try again.",
+        });
+      });
+
+    return () => {
+      cancelled = true;
     };
-  }, [service, timezone]);
+  }, [service, timezone, upcomingDates]);
+
+  const currentAvailability = availability?.key === availabilityKey ? availability : null;
+  const dates = currentAvailability?.dates ?? upcomingDates;
+  const slotsByDate = currentAvailability?.slotsByDate ?? {};
+  const loading = Boolean(service && timezone && !currentAvailability);
+  const availabilityError = currentAvailability?.error ?? null;
 
   const effectiveSelectedDate = selectedDate && (slotsByDate[selectedDate] ?? []).length > 0
     ? selectedDate
@@ -157,7 +210,7 @@ export function BookingFlow() {
           <Stepper step={step} />
           {(error || availabilityError) && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error ?? availabilityError}</div>}
           {step === 1 && <BookingServicePicker services={activeServices} selectedServiceId={serviceId} onSelect={(id) => { setServiceId(id); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onContinue={() => setStep(2)} />}
-          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={false} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); setError(null); }} onSlotSelect={(slot) => { setSelectedSlot(slot); setError(null); }} onTimezoneChange={(value) => { setTimezoneOverride(value); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
+          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={loading} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); setError(null); }} onSlotSelect={(slot) => { setSelectedSlot(slot); setError(null); }} onTimezoneChange={(value) => { setTimezoneOverride(value); setSelectedDate(null); setSelectedSlot(null); setError(null); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
           {step === 3 && <BookingDetailsForm details={details} onChange={setDetails} onBack={() => setStep(2)} onContinue={() => setStep(4)} />}
           {step === 4 && effectiveSelectedSlot && <BookingSummary service={service} slot={effectiveSelectedSlot} timezone={timezone} details={details} submitting={submitting} onBack={() => setStep(3)} onFinish={handleAppointmentCreation} />}
         </div>
