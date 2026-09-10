@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import type { ClientSession, ObjectId } from "mongodb";
 import type { AppointmentDocument, AppointmentPublicView, GoogleCalendarSyncStatus } from "@/lib/appointments/appointment-types";
-import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
+import { getMongoDb } from "@/lib/db/mongodb";
 
 const appointmentsCollection = "appointments";
 const bookingLocksCollection = "appointment_booking_locks";
@@ -34,13 +34,25 @@ export async function findAppointmentByToken(confirmationToken: string) {
 
 export async function findActiveAppointmentsOverlapping(startAt: Date, endAt: Date) {
   const db = await getMongoDb();
-  return db.collection<AppointmentDocument>(appointmentsCollection).find({ status: "confirmed", startAt: { $lt: endAt }, endAt: { $gt: startAt } }).toArray();
+  return db.collection<AppointmentDocument>(appointmentsCollection).find({
+    status: "confirmed",
+    startAt: { $lt: endAt },
+    endAt: { $gt: startAt },
+  }).toArray();
+}
+
+function createAvailabilityRevision() {
+  return createHash("sha256").update(`${Date.now()}:${randomUUID()}`).digest("hex");
 }
 
 export async function getBookingLocksRevision(): Promise<string> {
   const db = await getMongoDb();
-  const revision = await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).findOne({ _id: availabilityRevisionId }, { projection: { revision: 1 } });
+  const revision = await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).findOne(
+    { _id: availabilityRevisionId },
+    { projection: { revision: 1 } },
+  );
   if (revision?.revision) return revision.revision;
+
   const collection = db.collection<BookingLockDocument>(bookingLocksCollection);
   const [count, latest] = await Promise.all([
     collection.countDocuments(),
@@ -51,11 +63,23 @@ export async function getBookingLocksRevision(): Promise<string> {
 
 export async function bumpBookingLocksRevision(session: ClientSession): Promise<string> {
   const db = await getMongoDb();
-  const revision = createHash("sha256").update(`${Date.now()}:${randomUUID()}`).digest("hex");
+  const revision = createAvailabilityRevision();
   await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).updateOne(
     { _id: availabilityRevisionId },
     { $set: { revision, updatedAt: new Date() } },
     { upsert: true, session },
+  );
+  return revision;
+}
+
+/** Bumps the public availability revision outside a booking transaction. */
+export async function bumpPublicAvailabilityRevision(): Promise<string> {
+  const db = await getMongoDb();
+  const revision = createAvailabilityRevision();
+  await db.collection<AvailabilityRevisionDocument>(availabilityRevisionCollection).updateOne(
+    { _id: availabilityRevisionId },
+    { $set: { revision, updatedAt: new Date() } },
+    { upsert: true },
   );
   return revision;
 }
@@ -80,14 +104,26 @@ export async function updateGoogleCalendarSyncStatus(input: {
 }
 
 export function toAppointmentPublicView(appointment: AppointmentDocument): AppointmentPublicView {
-  return { confirmationToken: appointment.confirmationToken, status: appointment.status, service: appointment.service, patientName: appointment.patient.name, patientEmail: appointment.patient.email, startAt: appointment.startAt.toISOString(), endAt: appointment.endAt.toISOString(), timezone: appointment.timezone, createdAt: appointment.createdAt.toISOString(), ...(appointment.cancelledAt ? { cancelledAt: appointment.cancelledAt.toISOString() } : {}) };
+  return {
+    confirmationToken: appointment.confirmationToken,
+    status: appointment.status,
+    service: appointment.service,
+    patientName: appointment.patient.name,
+    patientEmail: appointment.patient.email,
+    startAt: appointment.startAt.toISOString(),
+    endAt: appointment.endAt.toISOString(),
+    timezone: appointment.timezone,
+    createdAt: appointment.createdAt.toISOString(),
+    ...(appointment.cancelledAt ? { cancelledAt: appointment.cancelledAt.toISOString() } : {}),
+  };
 }
 
 export async function cancelAppointment(confirmationToken: string) {
-  const client = await getMongoClient();
+  const client = await (await import("@/lib/db/mongodb")).getMongoClient();
   const db = await getMongoDb();
   const now = new Date();
   let cancelled: AppointmentDocument | null = null;
+
   await client.withSession(async (session) => session.withTransaction(async (transactionSession: ClientSession) => {
     const result = await db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
       { confirmationToken, status: "confirmed", startAt: { $gt: now } },
