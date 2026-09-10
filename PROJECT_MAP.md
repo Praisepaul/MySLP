@@ -20,23 +20,27 @@ Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoD
 ## Architecture
 ```text
 PUBLIC
-  /                         profile
-  /book                     booking
+  /                         persisted therapist profile + services preview
+  /book                     persisted services + booking engine
   /appointment/[token]      appointment management
   /appointment/[token]/reschedule
 
 ADMIN
   /admin
-  /admin/services
-  /admin/availability
+  /admin/services           persistent Services CMS
+  /admin/availability       persistent Availability CMS
   /admin/calendar
   /admin/appointments
-  /admin/profile
-  /admin/booking-settings
+  /admin/profile            persistent Profile CMS
+  /admin/booking-settings   persistent Booking Settings CMS
 
 CMS
   lib/cms/site-settings-repository.ts
+  lib/cms/services-repository.ts
+  lib/cms/availability-repository.ts
   MongoDB: site_settings
+  MongoDB: cms_services
+  MongoDB: cms_availability
 
 BOOKING
   lib/booking/slot-types.ts
@@ -69,6 +73,8 @@ MONGO COLLECTIONS
   availability_revisions
   appointment_revisions
   site_settings
+  cms_services
+  cms_availability
 ```
 
 # Phase status
@@ -77,34 +83,71 @@ MONGO COLLECTIONS
 **Complete.**
 
 ## Phase 1 — Design system + shells
-**Complete.**
+**Complete.** Current CMS/admin button placement and layout are intentionally preserved while functionality is connected.
 
 ## Phase 2 — Public therapist profile
-**Complete + CMS connected.** Public homepage now loads `getTherapistProfile()` from `lib/cms/site-settings-repository.ts`, with the original config retained as a safe default.
+**Complete + CMS connected.** Public homepage loads `getTherapistProfile()` from `lib/cms/site-settings-repository.ts`, with the original config retained as a safe default.
 
 ## Phase 3 — Services CMS
-**Functional UI only; persistence still required.** `lib/config/services.ts`, service list/form and `/admin/services` exist, but service mutations are not yet Mongo-backed.
+**Implemented persisted CMS.**
+
+Files:
+- `lib/cms/services-repository.ts`
+- `app/api/admin/services/route.ts`
+- `components/admin/services/services-manager.tsx`
+- `components/admin/services/services-list.tsx`
+- `components/admin/services/service-form.tsx`
+- `app/admin/services/page.tsx`
+- `components/public/profile/profile-services-preview.tsx`
+- `components/public/booking/booking-flow.tsx`
+- `app/book/page.tsx`
+- `app/appointment/[confirmationToken]/reschedule/page.tsx`
+- `lib/appointments/appointment-service.ts`
+
+Mongo collection: `cms_services`.
+
+`getServices()` uses the existing config as a one-time-safe fallback when Mongo has no records. `upsertService`, `disableService` and `deleteService` persist changes. Service disabling is soft-disable; existing appointment snapshots are not rewritten.
+
+Public service preview, booking selection, booking creation, and rescheduling now consume the persisted service repository rather than the static service array.
 
 ## Phase 4 — Availability management
-**Functional UI/core rules only; persistence still required.** `lib/config/availability.ts` and admin availability components exist, but recurring rules/exceptions are still config-backed.
+**Implemented persisted CMS.**
+
+Files:
+- `lib/cms/availability-repository.ts`
+- `app/api/admin/availability/route.ts`
+- `components/admin/availability/availability-manager.tsx`
+- `components/admin/availability/availability-exception-form.tsx`
+- `components/admin/availability/availability-rules-list.tsx`
+- `components/admin/availability/availability-rule-form.tsx`
+- `components/admin/availability/availability-exceptions-list.tsx`
+- `app/admin/availability/page.tsx`
+- `lib/booking/public-availability-service.ts`
+- `lib/appointments/appointment-service.ts`
+
+Mongo collection: `cms_availability`.
+
+Weekly rules and date exceptions are persisted as one authoritative configuration document. Existing validation functions from `lib/config/availability.ts` remain the validation boundary. Saving configuration bumps the existing public availability revision.
+
+Public availability, appointment creation and appointment rescheduling now consume persisted availability configuration.
 
 ## Phase 5 — Booking engine
-**Complete.** Existing slot/conflict logic remains authoritative. `getBookableSlotsWithConfiguration()` was added as a reusable runtime configuration boundary; existing `getBookableSlots()` remains for compatibility/defaults.
+**Complete.** Existing slot/conflict logic remains authoritative. `getBookableSlotsWithConfiguration()` is the reusable runtime configuration boundary; `getBookableSlots()` remains for compatibility/defaults.
 
 ## Phase 6 — Patient booking experience
 **Complete.** Service → timezone → date/time → details → review → appointment creation.
 
 ## Phase 7 — Appointment persistence/management
-**Complete and locally validated.** `createAppointment`, `rescheduleAppointment`, `cancelAppointment`, idempotency and transactional booking locks are established.
+**Complete and previously locally validated.** `createAppointment`, `rescheduleAppointment`, `cancelAppointment`, idempotency and transactional booking locks are established.
 
 ## Phase 8 — Patient calendar support
-**Complete and locally validated.** Google Calendar, Outlook, Apple/ICS support.
+**Complete and previously locally validated.** Google Calendar, Outlook, Apple/ICS support.
 
 ## Phase 9 — Therapist Google Calendar
-**Complete and validated.** OAuth, encrypted refresh tokens, FreeBusy, cached busy data, manual sync, disconnect and fail-closed final validation.
+**Complete and previously validated.** OAuth, encrypted refresh tokens, FreeBusy, cached busy data, manual sync, disconnect and fail-closed final validation.
 
 ## Phase 9.1 — Public availability realtime
-**Complete and validated.** Mongo-only revision checking every ~3 seconds while visible; Google is not polled by the browser loop.
+**Complete and previously validated.** Mongo-only revision checking every ~3 seconds while visible; Google is not polled by the browser loop.
 
 ## Phase 9.2 — External conflict learning
 **Complete.** Final Google conflicts can be persisted to `google_calendar_discovered_conflicts` and bump public availability revision.
@@ -117,48 +160,11 @@ MONGO COLLECTIONS
 
 Remaining: day/week visual calendar, dedicated detail view, native availability-picker rescheduling UI, manual admin creation UI, richer operational controls/retry and real admin authentication.
 
-Key files:
-- `app/admin/appointments/page.tsx`
-- `components/admin/appointments/admin-appointments-manager.tsx`
-- `app/api/admin/appointments/route.ts`
-- `app/api/admin/appointments/revision/route.ts`
-- `lib/appointments/appointment-repository.ts`
-- `lib/appointments/appointment-service.ts`
-
 ## Phase 12 — Profile CMS
-**Implemented initial persisted CMS.**
-
-Files:
-- `lib/cms/site-settings-repository.ts`
-- `app/admin/profile/page.tsx`
-- `app/api/admin/profile/route.ts`
-- `components/admin/profile/profile-form.tsx`
-
-Mongo document: `site_settings`, `_id = therapist-profile`.
-
-Editable: name, professional title, short/long bio, credentials, languages, location, timezone, online/in-person availability, profile image address, email, phone, website, Instagram, LinkedIn.
-
-Public homepage sections using the profile: `profile-hero.tsx`, `profile-about.tsx`, `profile-services-preview.tsx`, wired by `app/page.tsx`.
-
-The profile image field is currently an image address rather than a storage upload; a true uploader waits for a storage provider decision.
+**Implemented initial persisted CMS.** Mongo document: `site_settings`, `_id = therapist-profile`.
 
 ## Phase 13 — Booking settings CMS
-**Implemented initial persisted CMS + runtime enforcement.**
-
-Files:
-- `app/admin/booking-settings/page.tsx`
-- `app/api/admin/booking-settings/route.ts`
-- `components/admin/booking-settings/booking-settings-form.tsx`
-- `lib/cms/site-settings-repository.ts`
-- `lib/booking/booking-engine.ts`
-- `lib/booking/public-availability-service.ts`
-- `lib/appointments/appointment-service.ts`
-
-Mongo document: `site_settings`, `_id = booking-settings`.
-
-Editable: booking enabled, minimum notice, maximum advance, slot interval, before/after buffers, cancellation policy, rescheduling policy, booking instructions.
-
-Runtime: public availability, appointment creation and appointment rescheduling load persisted settings. Saving settings bumps the existing public availability revision. No duplicate booking engine was introduced.
+**Implemented initial persisted CMS + runtime enforcement.** Mongo document: `site_settings`, `_id = booking-settings`.
 
 ## Phase 14 — Internationalization
 **Planned.** English, Portuguese, Hindi across all user-facing surfaces with timezone-aware date/time formatting.
@@ -186,9 +192,11 @@ Runtime: public availability, appointment creation and appointment rescheduling 
 2. Inspect latest `main` before every change.
 3. Preserve existing filenames/functions/types unless a justified architectural change requires otherwise.
 4. MongoDB is authoritative for application booking state.
-5. Never bypass booking validation or booking locks.
-6. Google external conflicts belong in `google_calendar_discovered_conflicts`.
-7. Never poll Google Calendar from the public revision loop.
-8. CMS persistence belongs in `site_settings` until a more specific persisted domain collection is justified.
-9. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
-10. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
+5. Services are authoritative in `cms_services` once persisted; static service config is fallback only for an uninitialized installation.
+6. Availability rules/exceptions are authoritative in `cms_availability` once persisted; static availability config is fallback only for an uninitialized installation.
+7. Never bypass booking validation or booking locks.
+8. Google external conflicts belong in `google_calendar_discovered_conflicts`.
+9. Never poll Google Calendar from the public revision loop.
+10. CMS writes affecting availability bump the existing `availability_revisions` singleton.
+11. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
+12. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
