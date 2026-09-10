@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CalendarDays, CheckCircle2, CloudOff, RefreshCw, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants, Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -170,9 +171,9 @@ export function GoogleCalendarCard({
                     <Button variant="ghost" onClick={disconnect} disabled={busy}>Disconnect</Button>
                   </>
                 ) : (
-                  <Button asChild>
-                    <a href="/api/admin/google-calendar/connect">Connect Google Calendar</a>
-                  </Button>
+                  <Link className={buttonVariants()} href="/api/admin/google-calendar/connect">
+                    Connect Google Calendar
+                  </Link>
                 )}
               </div>
             </div>
