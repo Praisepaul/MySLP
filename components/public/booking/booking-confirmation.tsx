@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, CalendarCheck2, CheckCircle2, Mail } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { PageContainer } from "@/components/ui/page-container";
 import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
 
@@ -72,12 +72,8 @@ export function BookingConfirmation({ appointment }: BookingConfirmationProps) {
         </div>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button asChild size="lg">
-            <Link href={`/appointment/${appointment.confirmationToken}`}>Manage appointment <ArrowRight aria-hidden="true" /></Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/">Return home</Link>
-          </Button>
+          <Link className={buttonVariants({ size: "lg" })} href={`/appointment/${appointment.confirmationToken}`}>Manage appointment <ArrowRight aria-hidden="true" /></Link>
+          <Link className={buttonVariants({ size: "lg", variant: "outline" })} href="/">Return home</Link>
         </div>
       </PageContainer>
     </div>
