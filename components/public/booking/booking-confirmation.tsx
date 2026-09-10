@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarCheck2, CheckCircle2, Mail } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PageContainer } from "@/components/ui/page-container";
+import { CalendarActions } from "@/components/public/calendar/calendar-actions";
 import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
 
 interface BookingConfirmationProps {
@@ -39,7 +40,7 @@ export function BookingConfirmation({ appointment }: BookingConfirmationProps) {
           <p className="mt-6 text-sm font-medium text-muted-foreground">Booking confirmed</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">You’re all set, {appointment.patientName.split(" ")[0]}.</h1>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-            Your appointment has been saved. Keep this page or use the management link below if you need to review or cancel it later.
+            Your appointment has been saved. Add it to your calendar below, or use the management link if you need to review or cancel it later.
           </p>
         </div>
 
@@ -59,6 +60,10 @@ export function BookingConfirmation({ appointment }: BookingConfirmationProps) {
             <div><p className="text-sm font-medium">Timezone</p><p className="mt-1 text-sm text-muted-foreground">{appointment.timezone}</p></div>
             <div><p className="text-sm font-medium">Confirmation</p><p className="mt-1 break-all font-mono text-xs text-muted-foreground">{appointment.confirmationToken}</p></div>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <CalendarActions appointment={appointment} />
         </div>
 
         <div className="mt-6 rounded-2xl border p-5 sm:p-6">
