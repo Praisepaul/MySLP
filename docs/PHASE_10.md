@@ -16,7 +16,7 @@ When a patient books a Grace Sessions appointment, create the corresponding even
 
 ## OAuth scope
 
-Phase 9 used `calendar.freebusy` for availability. Phase 10 adds `calendar.events` so the therapist can grant event creation/update access. Existing connections need to re-authorize after the scope expansion.
+Phase 9 used `calendar.freebusy` for availability. Phase 10 adds `calendar.events` so the therapist can grant event creation/update access. Existing connections must re-authorize after the scope expansion.
 
 ## Event lifecycle implemented
 
@@ -34,3 +34,12 @@ MongoDB and Google Calendar do not share an atomic transaction. A Google failure
 ## Live availability
 
 Patient pages use the MongoDB availability revision every 3 seconds while visible. The fast polling endpoint never calls Google Calendar. Availability refreshes use the cached Google free/busy snapshot; final booking still performs the live Google check.
+
+## Validation checklist
+
+- Re-authorize the therapist Google connection after the scope expansion.
+- Book an online or in-person appointment.
+- Confirm the event appears on the therapist's primary Google Calendar with the correct start/end time.
+- Confirm the event contains the Grace Sessions service and patient details.
+- Cancel the appointment and confirm the Google event is removed.
+- Test a Google Calendar API failure: the MongoDB appointment must remain confirmed and sync status must become `failed`.
