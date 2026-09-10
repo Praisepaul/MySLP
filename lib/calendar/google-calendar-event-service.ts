@@ -63,13 +63,11 @@ function getEventDescription(appointment: AppointmentDocument) {
     `Email: ${appointment.patient.email}`,
     `Session type: ${appointment.service.online ? "Online" : "In person"}`,
     "",
-    "Manage this appointment:",
+    "Manage or cancel this appointment:",
     managementUrl,
     "",
     "Reschedule appointment:",
     rescheduleUrl,
-    "",
-    "Cancellation is available from the appointment management page.",
   ].join("\n");
 }
 
