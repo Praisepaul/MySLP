@@ -1,7 +1,6 @@
 "use client";
 import { Clock3, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AvailabilityRule, DayOfWeek } from "@/lib/config/availability";
 interface AvailabilityRulesListProps { rules: AvailabilityRule[]; onEdit?: (rule: AvailabilityRule) => void; onDisable?: (id: string) => void; busy?: boolean; }
