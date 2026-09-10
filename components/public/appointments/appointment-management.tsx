@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CalendarCheck2, CheckCircle2, Clock3, Globe2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants, Button } from "@/components/ui/button";
 import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
 
 interface AppointmentManagementProps {
@@ -20,10 +20,10 @@ export function AppointmentManagement({ initialAppointment }: AppointmentManagem
   const dateLabel = new Intl.DateTimeFormat("en", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: appointment.timezone }).format(start);
   const startTime = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: appointment.timezone }).format(start);
   const endTime = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: appointment.timezone }).format(end);
-  const canCancel = appointment.status === "confirmed" && start.getTime() > Date.now();
+  const canCancel = appointment.status === "confirmed";
 
   async function handleCancel() {
-    if (!canCancel || cancelling) return;
+    if (!canCancel || cancelling || start.getTime() <= Date.now()) return;
     const confirmed = window.confirm("Cancel this appointment? This cannot be undone online.");
     if (!confirmed) return;
 
@@ -77,7 +77,7 @@ export function AppointmentManagement({ initialAppointment }: AppointmentManagem
 
         {appointment.status === "cancelled" && <div className="mt-6 rounded-2xl border border-dashed p-5 text-sm leading-6 text-muted-foreground">This appointment has been cancelled and its scheduling lock has been released.</div>}
 
-        <div className="mt-8 text-center"><Button asChild variant="ghost"><Link href="/book">Book another appointment</Link></Button></div>
+        <div className="mt-8 text-center"><Link className={buttonVariants({ variant: "ghost" })} href="/book">Book another appointment</Link></div>
       </div>
     </div>
   );
