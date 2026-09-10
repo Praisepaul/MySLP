@@ -1,6 +1,6 @@
-import { ObjectId } from "mongodb";
-import type { AppointmentDocument, AppointmentPublicView, AppointmentStatus } from "@/lib/appointments/appointment-types";
-import { getMongoDb } from "@/lib/db/mongodb";
+import type { ClientSession } from "mongodb";
+import type { AppointmentDocument, AppointmentPublicView } from "@/lib/appointments/appointment-types";
+import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 
 const appointmentsCollection = "appointments";
 const bookingLocksCollection = "appointment_booking_locks";
@@ -33,7 +33,7 @@ export async function findAppointmentByToken(confirmationToken: string) {
 export async function findActiveAppointmentsOverlapping(startAt: Date, endAt: Date) {
   const db = await getMongoDb();
   return db.collection<AppointmentDocument>(appointmentsCollection).find({
-    status: { $in: ["confirmed"] },
+    status: "confirmed",
     startAt: { $lt: endAt },
     endAt: { $gt: startAt },
   }).toArray();
@@ -55,18 +55,28 @@ export function toAppointmentPublicView(appointment: AppointmentDocument): Appoi
 }
 
 export async function cancelAppointment(confirmationToken: string) {
+  const client = await getMongoClient();
   const db = await getMongoDb();
   const now = new Date();
-  const result = await db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
-    { confirmationToken, status: "confirmed" },
-    { $set: { status: "cancelled", cancelledAt: now, updatedAt: now } },
-    { returnDocument: "after" },
+  let cancelled: AppointmentDocument | null = null;
+
+  await client.withSession(async (session) =>
+    session.withTransaction(async (transactionSession: ClientSession) => {
+      const result = await db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
+        { confirmationToken, status: "confirmed", startAt: { $gt: now } },
+        { $set: { status: "cancelled", cancelledAt: now, updatedAt: now } },
+        { returnDocument: "after", session: transactionSession },
+      );
+
+      if (!result) return;
+
+      cancelled = result;
+      await db.collection(bookingLocksCollection).deleteMany(
+        { confirmationToken },
+        { session: transactionSession },
+      );
+    }),
   );
-  return result;
-}
 
-export function createConfirmationToken() {
-  return new ObjectId().toHexString() + ObjectId().toHexString();
+  return cancelled;
 }
-
-export type AppointmentStatusFilter = AppointmentStatus | "active";
