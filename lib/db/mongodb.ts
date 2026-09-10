@@ -1,7 +1,7 @@
 import { MongoClient, type Db } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB ?? "grace_sessions";
+const dbName = process.env.MONGODB_DB ?? "MySLP";
 
 if (!uri) {
   throw new Error("MONGODB_URI is not configured.");
