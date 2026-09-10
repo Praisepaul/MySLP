@@ -6,7 +6,18 @@ import { getGoogleCalendarConnectionStatus } from "@/lib/calendar/google-calenda
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminCalendarPage() {
+const errorMessages: Record<string, string> = {
+  google_authorization_denied: "Google Calendar authorization was cancelled or denied.",
+  invalid_oauth_state: "The Google Calendar connection could not be verified. Please start again.",
+  google_calendar_connection_failed: "Google Calendar could not be connected. Please check the OAuth configuration and try again.",
+};
+
+export default async function AdminCalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connected?: string; error?: string }>;
+}) {
+  const params = await searchParams;
   const setupUnlocked = await isGoogleCalendarSetupUnlocked();
   const configured = isGoogleCalendarConfigured();
   const status = setupUnlocked && configured
@@ -23,6 +34,18 @@ export default async function AdminCalendarPage() {
             Connect the therapist&apos;s Google Calendar and manually check external availability before accepting bookings.
           </p>
         </div>
+
+        {params.connected === "1" && (
+          <div role="status" className="rounded-2xl border bg-primary/5 px-5 py-4 text-sm">
+            Google Calendar connected successfully.
+          </div>
+        )}
+
+        {params.error && errorMessages[params.error] && (
+          <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
+            {errorMessages[params.error]}
+          </div>
+        )}
 
         <GoogleCalendarCard
           configured={configured}
