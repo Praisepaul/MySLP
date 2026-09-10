@@ -2,7 +2,6 @@ import { randomUUID } from "crypto";
 import { MongoServerError } from "mongodb";
 import { bookingSettings } from "@/lib/config/booking-settings";
 import { services } from "@/lib/config/services";
-import type { Service } from "@/lib/config/services";
 import {
   findActiveAppointmentsOverlapping,
   findAppointmentByIdempotencyKey,
@@ -78,14 +77,7 @@ async function learnCalendarConflicts(calendarConflicts: Awaited<ReturnType<type
   if (learned.some(Boolean)) await bumpPublicAvailabilityRevision();
 }
 
-export async function createAppointment(input: {
-  serviceId: unknown;
-  startAt: unknown;
-  timezone: unknown;
-  name: unknown;
-  email: unknown;
-  idempotencyKey: unknown;
-}) {
+export async function createAppointment(input: { serviceId: unknown; startAt: unknown; timezone: unknown; name: unknown; email: unknown; idempotencyKey: unknown }) {
   validateRequest(input);
   if (!bookingSettings.enabled) throw new AppointmentBookingError("UNAVAILABLE", "Online booking is currently unavailable.");
   const existingRequest = await findAppointmentByIdempotencyKey(input.idempotencyKey as string);
@@ -174,7 +166,9 @@ export async function rescheduleAppointment(input: { confirmationToken: string; 
   const appointmentConflicts = (await findActiveAppointmentsOverlapping(conflictStart, conflictEnd)).filter((item) => item.confirmationToken !== appointment.confirmationToken).map((item) => ({ start: item.startAt, end: item.endAt, source: "appointment" as const }));
   const calendarConflicts = await getCalendarConflicts(conflictStart, conflictEnd);
   const conflicts = [...appointmentConflicts, ...(calendarConflicts ?? []).map((interval) => ({ start: interval.start, end: interval.end, source: "calendar" as const }))];
-  const requestedSlot = getBookableSlots({ date, service: services.find((item) => item.id === appointment.service.id) ?? ({ ...appointment.service, shortDescription: "", description: "", active: true, order: 0 } as Service), timezone, conflicts, now }).slots.find((slot) => slot.start.getTime() === startAt.getTime() && slot.end.getTime() === endAt.getTime());
+  const service = services.find((item) => item.id === appointment.service.id);
+  if (!service) throw new AppointmentBookingError("UNAVAILABLE", "This service is no longer available for rescheduling.");
+  const requestedSlot = getBookableSlots({ date, service, timezone, conflicts, now }).slots.find((slot) => slot.start.getTime() === startAt.getTime() && slot.end.getTime() === endAt.getTime());
   if (!requestedSlot) {
     await learnCalendarConflicts(calendarConflicts);
     throw new AppointmentBookingError("UNAVAILABLE", "That time is no longer available. Please choose another slot.");
@@ -198,7 +192,7 @@ export async function rescheduleAppointment(input: { confirmationToken: string; 
     }));
   } catch (error) {
     if (error instanceof AppointmentBookingError) throw error;
-    if (error instanceof MongoServerError && error.code === 11000) throw new AppointmentBookingError("UNAVAILABLE", "That time was just booked by someone else. Please choose another slot.");
+    if (error instanceof MongoServerError && error.code === 11000) throw new AppointmentBookingError("UNAVAILABLE", "That time was just booked by someone else. Please try again.");
     throw new AppointmentBookingError("DATABASE", "We couldn't reschedule the appointment. Please try again.");
   }
 
