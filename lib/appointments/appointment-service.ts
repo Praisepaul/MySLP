@@ -4,6 +4,7 @@ import { bookingSettings } from "@/lib/config/booking-settings";
 import { services } from "@/lib/config/services";
 import { findActiveAppointmentsOverlapping, findAppointmentByIdempotencyKey, ensureAppointmentIndexes } from "@/lib/appointments/appointment-repository";
 import { getBookableSlots } from "@/lib/booking/booking-engine";
+import { getGoogleCalendarBusyIntervals } from "@/lib/calendar/google-calendar-service";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 import type { AppointmentDocument } from "@/lib/appointments/appointment-types";
 
@@ -106,15 +107,34 @@ export async function createAppointment(input: {
 
   assertTimezone(input.timezone as string);
   const endAt = new Date(startAt.getTime() + service.durationMinutes * 60 * 1000);
+  const conflictStart = new Date(startAt.getTime() - bookingSettings.bufferBeforeMinutes * 60 * 1000);
+  const conflictEnd = new Date(endAt.getTime() + bookingSettings.bufferAfterMinutes * 60 * 1000);
   const date = getDateInTimezone(startAt, input.timezone as string);
-  const conflicts = (await findActiveAppointmentsOverlapping(
-    new Date(startAt.getTime() - bookingSettings.bufferBeforeMinutes * 60 * 1000),
-    new Date(endAt.getTime() + bookingSettings.bufferAfterMinutes * 60 * 1000),
-  )).map((appointment) => ({
+
+  const appointmentConflicts = (await findActiveAppointmentsOverlapping(conflictStart, conflictEnd)).map((appointment) => ({
     start: appointment.startAt,
     end: appointment.endAt,
     source: "appointment" as const,
   }));
+
+  let calendarConflicts;
+  try {
+    calendarConflicts = await getGoogleCalendarBusyIntervals(conflictStart, conflictEnd);
+  } catch {
+    throw new AppointmentBookingError(
+      "UNAVAILABLE",
+      "We couldn't verify the therapist's calendar right now. Please try again in a moment.",
+    );
+  }
+
+  const conflicts = [
+    ...appointmentConflicts,
+    ...(calendarConflicts ?? []).map((interval) => ({
+      start: interval.start,
+      end: interval.end,
+      source: "calendar" as const,
+    })),
+  ];
 
   const availableSlots = getBookableSlots({
     date,
