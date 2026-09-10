@@ -72,7 +72,6 @@ export async function bumpBookingLocksRevision(session: ClientSession): Promise<
   return revision;
 }
 
-/** Bumps the public availability revision outside a booking transaction. */
 export async function bumpPublicAvailabilityRevision(): Promise<string> {
   const db = await getMongoDb();
   const revision = createAvailabilityRevision();
@@ -89,6 +88,7 @@ export async function updateGoogleCalendarSyncStatus(input: {
   syncStatus: GoogleCalendarSyncStatus;
   eventId?: string;
   error?: string;
+  meetJoinUrl?: string;
 }) {
   const db = await getMongoDb();
   const now = new Date();
@@ -97,10 +97,24 @@ export async function updateGoogleCalendarSyncStatus(input: {
     "googleCalendar.lastSyncedAt": now,
   };
   if (input.eventId) set["googleCalendar.eventId"] = input.eventId;
+  if (input.meetJoinUrl) set["googleMeet.joinUrl"] = input.meetJoinUrl;
   const update: { $set: Record<string, unknown>; $unset?: Record<string, ""> } = { $set: set };
   if (input.error) set["googleCalendar.lastSyncError"] = input.error;
   else update.$unset = { "googleCalendar.lastSyncError": "" };
   await db.collection<AppointmentDocument>(appointmentsCollection).updateOne({ confirmationToken: input.confirmationToken }, update);
+}
+
+export async function updateAppointmentSchedule(input: {
+  confirmationToken: string;
+  startAt: Date;
+  endAt: Date;
+}) {
+  const db = await getMongoDb();
+  return db.collection<AppointmentDocument>(appointmentsCollection).findOneAndUpdate(
+    { confirmationToken: input.confirmationToken, status: "confirmed" },
+    { $set: { startAt: input.startAt, endAt: input.endAt, updatedAt: new Date() } },
+    { returnDocument: "after" },
+  );
 }
 
 export function toAppointmentPublicView(appointment: AppointmentDocument): AppointmentPublicView {
@@ -115,6 +129,7 @@ export function toAppointmentPublicView(appointment: AppointmentDocument): Appoi
     timezone: appointment.timezone,
     createdAt: appointment.createdAt.toISOString(),
     ...(appointment.cancelledAt ? { cancelledAt: appointment.cancelledAt.toISOString() } : {}),
+    ...(appointment.googleMeet ? { googleMeet: appointment.googleMeet } : {}),
   };
 }
 
