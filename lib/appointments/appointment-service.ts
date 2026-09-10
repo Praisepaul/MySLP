@@ -2,9 +2,10 @@ import { randomUUID } from "crypto";
 import { MongoServerError } from "mongodb";
 import { bookingSettings } from "@/lib/config/booking-settings";
 import { services } from "@/lib/config/services";
-import { findActiveAppointmentsOverlapping, findAppointmentByIdempotencyKey, ensureAppointmentIndexes, bumpBookingLocksRevision } from "@/lib/appointments/appointment-repository";
+import { findActiveAppointmentsOverlapping, findAppointmentByIdempotencyKey, ensureAppointmentIndexes, bumpBookingLocksRevision, updateGoogleCalendarSyncStatus } from "@/lib/appointments/appointment-repository";
 import { getBookableSlots } from "@/lib/booking/booking-engine";
 import { getGoogleCalendarBusyIntervals } from "@/lib/calendar/google-calendar-service";
+import { createGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
 import { getMongoClient, getMongoDb } from "@/lib/db/mongodb";
 import type { AppointmentDocument } from "@/lib/appointments/appointment-types";
 
@@ -177,6 +178,7 @@ export async function createAppointment(input: {
     timezone: input.timezone as string,
     createdAt: now,
     updatedAt: now,
+    googleCalendar: { syncStatus: "pending" },
   };
 
   try {
@@ -198,6 +200,21 @@ export async function createAppointment(input: {
       throw new AppointmentBookingError("UNAVAILABLE", "That time was just booked by someone else. Please choose another slot.");
     }
     throw new AppointmentBookingError("DATABASE", "We couldn't save the appointment. Please try again.");
+  }
+
+  try {
+    const eventId = await createGoogleCalendarAppointmentEvent(appointment);
+    await updateGoogleCalendarSyncStatus({
+      confirmationToken,
+      syncStatus: eventId ? "synced" : "not_connected",
+      ...(eventId ? { eventId } : {}),
+    });
+  } catch (error) {
+    await updateGoogleCalendarSyncStatus({
+      confirmationToken,
+      syncStatus: "failed",
+      error: error instanceof Error ? error.message.slice(0, 500) : "Google Calendar event creation failed.",
+    });
   }
 
   return appointment;
