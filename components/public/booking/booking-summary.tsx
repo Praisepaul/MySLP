@@ -1,0 +1,42 @@
+import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, Globe2, Mail, UserRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { BookableSlot } from "@/lib/booking/slot-types";
+import type { Service } from "@/lib/config/services";
+import type { BookingDetails } from "./booking-details-form";
+
+interface BookingSummaryProps {
+  service: Service;
+  slot: BookableSlot;
+  timezone: string;
+  details: BookingDetails;
+  onBack: () => void;
+  onFinish: () => void;
+}
+
+export function BookingSummary({ service, slot, timezone, details, onBack, onFinish }: BookingSummaryProps) {
+  const dateLabel = new Intl.DateTimeFormat("en", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: timezone }).format(slot.start);
+  const startTime = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: timezone }).format(slot.start);
+  const endTime = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: timezone }).format(slot.end);
+
+  return (
+    <section aria-labelledby="summary-step-title" className="space-y-6">
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">Step 4 of 4</p>
+        <h2 id="summary-step-title" className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Review your booking</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Everything looks good? Continue to finish the booking flow.</p>
+      </div>
+      <div className="overflow-hidden rounded-2xl border">
+        <div className="bg-muted/40 p-5 sm:p-6"><p className="text-sm font-medium text-muted-foreground">Appointment</p><h3 className="mt-1 text-xl font-semibold">{service.name}</h3><p className="mt-1 text-sm text-muted-foreground">{service.durationMinutes} minute session</p></div>
+        <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+          <div className="flex gap-3"><CalendarDays aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" /><div><p className="text-sm font-medium">Date</p><p className="mt-1 text-sm text-muted-foreground">{dateLabel}</p></div></div>
+          <div className="flex gap-3"><Clock3 aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" /><div><p className="text-sm font-medium">Time</p><p className="mt-1 text-sm text-muted-foreground">{startTime} – {endTime}</p></div></div>
+          <div className="flex gap-3"><Globe2 aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" /><div><p className="text-sm font-medium">Timezone</p><p className="mt-1 text-sm text-muted-foreground">{timezone}</p></div></div>
+          <div className="flex gap-3"><UserRound aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" /><div><p className="text-sm font-medium">Name</p><p className="mt-1 text-sm text-muted-foreground">{details.name}</p></div></div>
+          <div className="flex gap-3 sm:col-span-2"><Mail aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" /><div><p className="text-sm font-medium">Email</p><p className="mt-1 text-sm text-muted-foreground">{details.email}</p></div></div>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-dashed p-5 text-sm leading-6 text-muted-foreground"><strong className="font-medium text-foreground">One more step:</strong> this preview confirms the complete booking details. Appointment creation and confirmation emails will connect to the persistent appointment system in the next phase.</div>
+      <div className="flex flex-col-reverse justify-between gap-3 border-t pt-6 sm:flex-row"><Button variant="outline" onClick={onBack}><ArrowLeft aria-hidden="true" /> Back</Button><Button size="lg" onClick={onFinish}>Finish preview <CheckCircle2 aria-hidden="true" /></Button></div>
+    </section>
+  );
+}
