@@ -7,6 +7,7 @@ import {
   findAppointmentByIdempotencyKey,
   findAppointmentByToken,
   ensureAppointmentIndexes,
+  bumpAppointmentRevision,
   bumpBookingLocksRevision,
   bumpPublicAvailabilityRevision,
   updateGoogleCalendarSyncStatus,
@@ -125,6 +126,7 @@ export async function createAppointment(input: { serviceId: unknown; startAt: un
       await db.collection(bookingLocksCollection).insertMany(locks, { session: transactionSession });
       await db.collection<AppointmentDocument>(appointmentsCollection).insertOne(appointment, { session: transactionSession });
       await bumpBookingLocksRevision(transactionSession);
+      await bumpAppointmentRevision(transactionSession);
     }));
   } catch (error) {
     if (error instanceof MongoServerError && error.code === 11000) {
@@ -189,6 +191,7 @@ export async function rescheduleAppointment(input: { confirmationToken: string; 
       );
       if (result.matchedCount !== 1) throw new AppointmentBookingError("UNAVAILABLE", "This appointment changed before it could be rescheduled. Please try again.");
       await bumpBookingLocksRevision(transactionSession);
+      await bumpAppointmentRevision(transactionSession);
     }));
   } catch (error) {
     if (error instanceof AppointmentBookingError) throw error;
