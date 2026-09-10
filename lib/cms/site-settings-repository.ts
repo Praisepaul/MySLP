@@ -1,7 +1,7 @@
 import type { Collection } from "mongodb";
 import { getMongoDb } from "@/lib/db/mongodb";
 import { bookingSettings, type BookingSettings, validateBookingSettings } from "@/lib/config/booking-settings";
-import { therapistProfile, type TherapistProfile } from "@/lib/config/therapist-profile";
+import { therapistProfile } from "@/lib/config/therapist-profile";
 
 const collectionName = "site_settings";
 const profileId = "therapist-profile";
@@ -91,7 +91,7 @@ function validateProfile(profile: EditableTherapistProfile): string | null {
   if (profile.timezone) {
     try { new Intl.DateTimeFormat("en-US", { timeZone: profile.timezone }).format(); } catch { return "Please provide a valid IANA timezone."; }
   }
-  if (profile.contact.email && !/^([^\s@]+)@([^\s@]+)\.[^\s@]+$/.test(profile.contact.email)) return "Please provide a valid email address.";
+  if (profile.contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.contact.email)) return "Please provide a valid email address.";
   return null;
 }
 
