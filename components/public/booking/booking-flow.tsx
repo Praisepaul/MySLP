@@ -58,7 +58,9 @@ function Stepper({ step }: { step: BookingStep }) {
 export function BookingFlow() {
   const [step, setStep] = useState<BookingStep>(1);
   const [serviceId, setServiceId] = useState<string | null>(activeServices[0]?.id ?? null);
-  const timezone = useSyncExternalStore(subscribeToTimezone, getBrowserTimezone, () => "Asia/Kolkata");
+  const browserTimezone = useSyncExternalStore(subscribeToTimezone, getBrowserTimezone, () => "Asia/Kolkata");
+  const [timezoneOverride, setTimezoneOverride] = useState<string | null>(null);
+  const timezone = timezoneOverride ?? browserTimezone;
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<BookableSlot | null>(null);
   const [details, setDetails] = useState<BookingDetails>({ name: "", email: "" });
@@ -114,7 +116,7 @@ export function BookingFlow() {
           <Stepper step={step} />
           {error && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
           {step === 1 && <BookingServicePicker services={activeServices} selectedServiceId={serviceId} onSelect={setServiceId} onContinue={() => setStep(2)} />}
-          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={false} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); }} onSlotSelect={setSelectedSlot} onTimezoneChange={(value) => { setSelectedDate(null); setSelectedSlot(null); window.history.replaceState(null, "", window.location.href); if (value !== timezone) window.location.reload(); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
+          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={false} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); }} onSlotSelect={setSelectedSlot} onTimezoneChange={(value) => { setTimezoneOverride(value); setSelectedDate(null); setSelectedSlot(null); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
           {step === 3 && <BookingDetailsForm details={details} onChange={setDetails} onBack={() => setStep(2)} onContinue={() => setStep(4)} />}
           {step === 4 && effectiveSelectedSlot && <BookingSummary service={service} slot={effectiveSelectedSlot} timezone={timezone} details={details} onBack={() => setStep(3)} onFinish={() => setStep(5)} />}
         </div>
