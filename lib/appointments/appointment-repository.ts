@@ -76,10 +76,7 @@ export async function updateGoogleCalendarSyncStatus(input: {
   const update: { $set: Record<string, unknown>; $unset?: Record<string, ""> } = { $set: set };
   if (input.error) set["googleCalendar.lastSyncError"] = input.error;
   else update.$unset = { "googleCalendar.lastSyncError": "" };
-  await db.collection<AppointmentDocument>(appointmentsCollection).updateOne(
-    { confirmationToken },
-    update,
-  );
+  await db.collection<AppointmentDocument>(appointmentsCollection).updateOne({ confirmationToken: input.confirmationToken }, update);
 }
 
 export function toAppointmentPublicView(appointment: AppointmentDocument): AppointmentPublicView {
