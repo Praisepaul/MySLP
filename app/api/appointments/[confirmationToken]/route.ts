@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cancelAppointment, findAppointmentByToken, toAppointmentPublicView } from "@/lib/appointments/appointment-repository";
+import { deleteGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,15 @@ export async function DELETE(_request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Appointment not found." }, { status: 404 });
     }
     return NextResponse.json({ error: "This appointment can no longer be cancelled online." }, { status: 409 });
+  }
+
+  const eventId = appointment.googleCalendar?.eventId;
+  if (eventId) {
+    try {
+      await deleteGoogleCalendarAppointmentEvent(eventId);
+    } catch {
+      // The application cancellation remains authoritative; reconciliation can retry the calendar removal.
+    }
   }
 
   return NextResponse.json({ appointment: toAppointmentPublicView(appointment) });
