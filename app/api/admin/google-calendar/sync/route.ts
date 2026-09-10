@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
 import { getGoogleCalendarBusyIntervals } from "@/lib/calendar/google-calendar-service";
 import { saveGoogleCalendarBusyCache } from "@/lib/calendar/google-calendar-repository";
-import { googleCalendarId } from "@/lib/calendar/google-calendar-types";
+import { googleCalendarConnectionId } from "@/lib/calendar/google-calendar-types";
 
 export const runtime = "nodejs";
 
@@ -15,7 +15,7 @@ export async function POST() {
     const busyIntervals = await getGoogleCalendarBusyIntervals(start, end);
 
     if (busyIntervals !== null) {
-      await saveGoogleCalendarBusyCache({ calendarId: googleCalendarId, checkedFrom: start, checkedTo: end, busyIntervals });
+      await saveGoogleCalendarBusyCache({ calendarId: googleCalendarConnectionId, checkedFrom: start, checkedTo: end, busyIntervals });
     }
 
     return NextResponse.json({
