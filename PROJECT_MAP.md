@@ -120,11 +120,12 @@ To be defined during implementation.
 
 # Public Pages
 
-To be implemented.
+Implemented/under construction:
+
+- Home — public therapist profile composition
 
 Expected pages include:
 
-- Home
 - Booking
 - Appointment management
 - Contact
@@ -132,13 +133,42 @@ Expected pages include:
 
 ---
 
+# Public Profile Architecture
+
+Profile configuration currently lives in:
+
+- `lib/config/therapist-profile.ts`
+
+The configuration is the current single source for therapist-facing profile
+content while the CMS/database layer is being built. It is intentionally
+structured so the later Admin → Profile implementation can migrate the same
+fields into persistent storage without changing the public component API.
+
+Current reusable public profile components:
+
+- `components/public/profile/profile-hero.tsx` — primary therapist/profile
+  introduction and booking CTA.
+- `components/public/profile/profile-about.tsx` — therapist introduction and
+  credentials.
+- `components/public/profile/profile-services-preview.tsx` — services preview
+  placeholder and future CMS entry point.
+- `components/public/profile/profile-how-it-works.tsx` — three-step booking
+  journey explanation.
+- `components/public/profile/profile-faq.tsx` — public FAQ presentation.
+
+The homepage composition is maintained in `app/page.tsx` and should remain a
+thin composition layer rather than becoming the home for profile content.
+
+---
+
 # Admin Pages
 
-To be implemented.
+Implemented/under construction:
+
+- Dashboard
 
 Expected areas include:
 
-- Dashboard
 - Appointments
 - Calendar
 - Availability
@@ -170,27 +200,52 @@ Do not create unnecessary patient collections.
 
 # Important Functions
 
-To be documented as implementation progresses.
+## `ProfileHero`
 
-Every significant shared function should be recorded here with:
+- filename: `components/public/profile/profile-hero.tsx`
+- responsibility: Render the primary public therapist introduction, profile
+  image area and booking/learn-more CTAs.
+- important dependencies: `therapistProfile`, Next.js `Link`, Lucide icons.
 
-- filename
-- function name
-- responsibility
-- important dependencies
+## `ProfileAbout`
+
+- filename: `components/public/profile/profile-about.tsx`
+- responsibility: Render the therapist introduction and optional credentials.
+- important dependencies: `therapistProfile`, Lucide icons.
+
+## `ProfileServicesPreview`
+
+- filename: `components/public/profile/profile-services-preview.tsx`
+- responsibility: Present the public services section and future service CMS
+  entry point.
+- important dependencies: Next.js `Link`, Lucide icons.
+
+## `ProfileHowItWorks`
+
+- filename: `components/public/profile/profile-how-it-works.tsx`
+- responsibility: Explain the three-step public booking journey.
+- important dependencies: Lucide icons.
+
+## `ProfileFaq`
+
+- filename: `components/public/profile/profile-faq.tsx`
+- responsibility: Render the public FAQ section.
+- important dependencies: shadcn `Card` components.
 
 ---
 
 # Important Components
 
-To be documented as implementation progresses.
+See `# Public Profile Architecture` above for the current public profile
+component inventory.
 
-Every significant reusable component should be recorded here with:
+Existing application-shell components remain under:
 
-- filename
-- component name
-- responsibility
-- important dependencies
+- `components/public/navigation/`
+- `components/public/layout/`
+- `components/admin/navigation/`
+- `components/admin/layout/`
+- `components/ui/`
 
 ---
 
@@ -321,3 +376,12 @@ Avoid collecting unnecessary clinical or personally sensitive information.
 - Next.js project initialized.
 - Core product decisions documented.
 - Git repository initialized.
+
+## Phase 2A — Therapist Public Profile Foundation
+
+- Added `lib/config/therapist-profile.ts` as the initial profile content model.
+- Added reusable public profile components under
+  `components/public/profile/`.
+- Composed the homepage from the new profile sections.
+- Kept `app/page.tsx` as a composition layer.
+- Established the public profile component inventory for the future Profile CMS.
