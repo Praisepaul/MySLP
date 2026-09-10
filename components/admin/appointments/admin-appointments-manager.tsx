@@ -74,6 +74,12 @@ export function AdminAppointmentsManager() {
     return () => window.clearTimeout(timer);
   }, [loadAppointments]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   async function updateAppointment(token: string, action: "completed" | "no_show") {
     setWorkingToken(token);
     setError(null);
@@ -123,10 +129,7 @@ export function AdminAppointmentsManager() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex-1">
           <label htmlFor="appointment-search" className="text-sm font-medium">Search appointments</label>
-          <div className="relative mt-2 max-w-xl">
-            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input id="appointment-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Patient, email, service, or confirmation token" className="h-11 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" />
-          </div>
+          <div className="relative mt-2 max-w-xl"><Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input id="appointment-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Patient, email, service, or confirmation token" className="h-11 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" /></div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:flex">
           <div><label htmlFor="appointment-from" className="text-sm font-medium">From</label><input id="appointment-from" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" /></div>
@@ -139,19 +142,13 @@ export function AdminAppointmentsManager() {
       {notice && <div role="status" aria-live="polite" className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-xl border bg-background px-4 py-3 text-sm font-medium shadow-lg">{notice}<button type="button" className="ml-3 float-right text-muted-foreground" onClick={() => setNotice(null)} aria-label="Dismiss notification">×</button></div>}
       {error && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
 
-      {loading ? (
-        <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed"><Loader2 aria-hidden="true" className="size-5 animate-spin text-muted-foreground" /></div>
-      ) : appointments.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-10 text-center"><CalendarDays aria-hidden="true" className="mx-auto size-8 text-muted-foreground" /><h2 className="mt-3 font-semibold">No appointments found</h2><p className="mt-1 text-sm text-muted-foreground">Try another date, status, or search term.</p></div>
-      ) : (
-        grouped.map((group) => {
-          const first = group[0];
-          return <section key={`${first.timezone}:${formatDay(first.startAt, first.timezone)}`}><h2 className="mb-3 text-sm font-semibold text-muted-foreground">{formatDay(first.startAt, first.timezone)} · {first.timezone}</h2><div className="space-y-3">{group.map((appointment) => {
-            const working = workingToken === appointment.confirmationToken;
-            return <article key={appointment.confirmationToken} className="rounded-2xl border bg-background p-5 shadow-xs"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{appointment.patientName}</span><span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize">{appointment.status.replace("_", " ")}</span></div><p className="mt-1 text-sm text-muted-foreground">{appointment.patientEmail}</p><p className="mt-3 text-sm font-medium">{appointment.service.name} · {formatDateTime(appointment.startAt, appointment.timezone)}–{new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: appointment.timezone }).format(new Date(appointment.endAt))}</p><p className="mt-1 text-xs text-muted-foreground">{appointment.timezone} · {appointment.service.durationMinutes} min · Calendar: {appointment.googleCalendar?.syncStatus ?? "unknown"}</p>{appointment.googleCalendar?.lastSyncError && <p className="mt-1 text-xs text-destructive">Calendar sync: {appointment.googleCalendar.lastSyncError}</p>}</div><div className="flex flex-wrap gap-2 xl:max-w-sm xl:justify-end"><a href={`/appointment/${appointment.confirmationToken}`} target="_blank" rel="noreferrer"><Button variant="outline"><ExternalLink aria-hidden="true" /> Manage</Button></a>{appointment.googleMeet?.joinUrl && <a href={appointment.googleMeet.joinUrl} target="_blank" rel="noreferrer"><Button variant="outline">Join Meet</Button></a>}{appointment.status === "confirmed" && <><Button variant="outline" disabled={working} onClick={() => void updateAppointment(appointment.confirmationToken, "completed")}><Check aria-hidden="true" /> Completed</Button><Button variant="outline" disabled={working} onClick={() => void updateAppointment(appointment.confirmationToken, "no_show")}>No-show</Button><Button variant="destructive" disabled={working} onClick={() => void cancelAppointment(appointment.confirmationToken)}><X aria-hidden="true" /> Cancel</Button></>}</div></div></article>;
-          })}</div></section>;
-        })
-      )}
+      {loading ? <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed"><Loader2 aria-hidden="true" className="size-5 animate-spin text-muted-foreground" /></div> : appointments.length === 0 ? <div className="rounded-2xl border border-dashed p-10 text-center"><CalendarDays aria-hidden="true" className="mx-auto size-8 text-muted-foreground" /><h2 className="mt-3 font-semibold">No appointments found</h2><p className="mt-1 text-sm text-muted-foreground">Try another date, status, or search term.</p></div> : grouped.map((group) => {
+        const first = group[0];
+        return <section key={`${first.timezone}:${formatDay(first.startAt, first.timezone)}`}><h2 className="mb-3 text-sm font-semibold text-muted-foreground">{formatDay(first.startAt, first.timezone)} · {first.timezone}</h2><div className="space-y-3">{group.map((appointment) => {
+          const working = workingToken === appointment.confirmationToken;
+          return <article key={appointment.confirmationToken} className="rounded-2xl border bg-background p-5 shadow-xs"><div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{appointment.patientName}</span><span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize">{appointment.status.replace("_", " ")}</span></div><p className="mt-1 text-sm text-muted-foreground">{appointment.patientEmail}</p><p className="mt-3 text-sm font-medium">{appointment.service.name} · {formatDateTime(appointment.startAt, appointment.timezone)}–{new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: appointment.timezone }).format(new Date(appointment.endAt))}</p><p className="mt-1 text-xs text-muted-foreground">{appointment.timezone} · {appointment.service.durationMinutes} min · Calendar: {appointment.googleCalendar?.syncStatus ?? "unknown"}</p>{appointment.googleCalendar?.lastSyncError && <p className="mt-1 text-xs text-destructive">Calendar sync: {appointment.googleCalendar.lastSyncError}</p>}</div><div className="flex flex-wrap gap-2 xl:max-w-sm xl:justify-end"><a href={`/appointment/${appointment.confirmationToken}`} target="_blank" rel="noreferrer"><Button variant="outline"><ExternalLink aria-hidden="true" /> Manage</Button></a>{appointment.googleMeet?.joinUrl && <a href={appointment.googleMeet.joinUrl} target="_blank" rel="noreferrer"><Button variant="outline">Join Meet</Button></a>}{appointment.status === "confirmed" && <><Button variant="outline" disabled={working} onClick={() => void updateAppointment(appointment.confirmationToken, "completed")}><Check aria-hidden="true" /> Completed</Button><Button variant="outline" disabled={working} onClick={() => void updateAppointment(appointment.confirmationToken, "no_show")}>No-show</Button><Button variant="destructive" disabled={working} onClick={() => void cancelAppointment(appointment.confirmationToken)}><X aria-hidden="true" /> Cancel</Button></>}</div></div></article>;
+        })}</div></section>;
+      })}
     </div>
   );
 }
