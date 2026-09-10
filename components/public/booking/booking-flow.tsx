@@ -1,0 +1,124 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { CalendarCheck2, CheckCircle2, ShieldCheck } from "lucide-react";
+import { BookingDateTimePicker } from "./booking-date-time-picker";
+import { BookingDetailsForm, type BookingDetails } from "./booking-details-form";
+import { BookingServicePicker } from "./booking-service-picker";
+import { BookingSummary } from "./booking-summary";
+import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/ui/page-container";
+import { getBookableSlots } from "@/lib/booking/booking-engine";
+import type { BookableSlot } from "@/lib/booking/slot-types";
+import { services } from "@/lib/config/services";
+
+const activeServices = services.filter((service) => service.active).sort((a, b) => a.order - b.order);
+type BookingStep = 1 | 2 | 3 | 4 | 5;
+
+function getDateParts(date: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  return Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value])) as Record<string, string>;
+}
+
+function getUpcomingDates(timezone: string, count: number) {
+  const today = getDateParts(new Date(), timezone);
+  const base = Date.UTC(Number(today.year), Number(today.month) - 1, Number(today.day));
+  return Array.from({ length: count }, (_, index) => new Date(base + index * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+}
+
+function Stepper({ step }: { step: BookingStep }) {
+  const items = ["Session", "Date & time", "Details", "Review"];
+  return (
+    <nav aria-label="Booking progress" className="mb-8">
+      <ol className="grid grid-cols-4 gap-2">
+        {items.map((label, index) => {
+          const number = index + 1;
+          const complete = step > number;
+          const current = step === number;
+          return (
+            <li key={label} className="min-w-0">
+              <div className="flex items-center gap-2"><span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${complete || current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{complete ? <CheckCircle2 aria-hidden="true" className="size-4" /> : number}</span><span className={`hidden truncate text-xs font-medium sm:block ${current ? "text-foreground" : "text-muted-foreground"}`}>{label}</span></div>
+              <div className={`mt-2 h-1 rounded-full ${number <= step ? "bg-primary" : "bg-muted"}`} />
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+export function BookingFlow() {
+  const [step, setStep] = useState<BookingStep>(1);
+  const [serviceId, setServiceId] = useState<string | null>(activeServices[0]?.id ?? null);
+  const [timezone, setTimezone] = useState("Asia/Kolkata");
+  const [dates, setDates] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<BookableSlot | null>(null);
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, BookableSlot[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [details, setDetails] = useState<BookingDetails>({ name: "", email: "" });
+
+  const service = useMemo(() => activeServices.find((item) => item.id === serviceId) ?? null, [serviceId]);
+
+  useEffect(() => {
+    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (browserTimezone) setTimezone(browserTimezone);
+  }, []);
+
+  useEffect(() => {
+    if (!service || !timezone) return;
+    setLoading(true);
+    const upcomingDates = getUpcomingDates(timezone, 14);
+    const now = new Date();
+    const nextSlots: Record<string, BookableSlot[]> = {};
+    let calculationError = false;
+
+    for (const date of upcomingDates) {
+      try {
+        nextSlots[date] = getBookableSlots({ date, service, timezone, now }).slots;
+      } catch {
+        nextSlots[date] = [];
+        calculationError = true;
+      }
+    }
+
+    setDates(upcomingDates);
+    setSlotsByDate(nextSlots);
+    setSelectedDate((current) => current && (nextSlots[current] ?? []).length > 0 ? current : upcomingDates.find((date) => (nextSlots[date] ?? []).length > 0) ?? null);
+    setSelectedSlot(null);
+    setError(calculationError ? "We couldn't calculate every availability window. Please try another timezone or date." : null);
+    setLoading(false);
+  }, [service, timezone]);
+
+  useEffect(() => {
+    if (!selectedDate || !selectedSlot) return;
+    const stillAvailable = (slotsByDate[selectedDate] ?? []).some((slot) => slot.start.getTime() === selectedSlot.start.getTime());
+    if (!stillAvailable) setSelectedSlot(null);
+  }, [selectedDate, selectedSlot, slotsByDate]);
+
+  if (!service || activeServices.length === 0) {
+    return <div className="py-20 sm:py-28"><PageContainer size="narrow"><div className="rounded-3xl border border-dashed p-8 text-center sm:p-12"><CalendarCheck2 aria-hidden="true" className="mx-auto size-8 text-muted-foreground" /><h1 className="mt-4 text-2xl font-semibold">Booking is not available yet</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Please check back soon or contact the practice directly.</p></div></PageContainer></div>;
+  }
+
+  if (step === 5) {
+    return <div className="py-20 sm:py-28"><PageContainer size="narrow"><div className="text-center"><div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CheckCircle2 aria-hidden="true" className="size-7" /></div><p className="mt-6 text-sm font-medium text-muted-foreground">Booking preview complete</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">You’re all set</h1><p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">Your session details are ready. The next phase will connect this flow to appointment creation, confirmation emails and calendar support.</p><Button className="mt-8" variant="outline" onClick={() => setStep(4)}>Back to review</Button></div></PageContainer></div>;
+  }
+
+  return (
+    <div className="bg-muted/20 py-12 sm:py-16 lg:py-20">
+      <PageContainer size="narrow">
+        <div className="mb-10 text-center sm:mb-12"><div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CalendarCheck2 aria-hidden="true" className="size-6" /></div><p className="mt-5 text-sm font-medium text-muted-foreground">Grace Sessions</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Book an appointment</h1><p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">A simple, private booking experience. No account required.</p></div>
+        <div className="rounded-3xl border bg-background p-5 shadow-sm sm:p-8 lg:p-10">
+          <Stepper step={step} />
+          {error && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
+          {step === 1 && <BookingServicePicker services={activeServices} selectedServiceId={serviceId} onSelect={setServiceId} onContinue={() => setStep(2)} />}
+          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={selectedDate} selectedSlot={selectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={loading} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); }} onSlotSelect={setSelectedSlot} onTimezoneChange={(value) => { setLoading(true); setTimezone(value); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
+          {step === 3 && <BookingDetailsForm details={details} onChange={setDetails} onBack={() => setStep(2)} onContinue={() => setStep(4)} />}
+          {step === 4 && selectedSlot && <BookingSummary service={service} slot={selectedSlot} timezone={timezone} details={details} onBack={() => setStep(3)} onFinish={() => setStep(5)} />}
+        </div>
+        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck aria-hidden="true" className="size-4" /> Only scheduling details are collected.</div>
+      </PageContainer>
+    </div>
+  );
+}
