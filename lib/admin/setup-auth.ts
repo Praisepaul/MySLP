@@ -6,11 +6,6 @@ const stateCookieName = "grace_google_calendar_oauth_state";
 const setupMaxAgeSeconds = 12 * 60 * 60;
 const stateMaxAgeSeconds = 10 * 60;
 
-type SignedValue = {
-  issuedAt: number;
-  value: string;
-};
-
 function getSetupSecret(): string {
   const secret = process.env.GOOGLE_CALENDAR_SETUP_SECRET;
   if (!secret) {
