@@ -1,0 +1,85 @@
+import Link from "next/link";
+import { ArrowRight, CalendarCheck2, CheckCircle2, Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/ui/page-container";
+import type { AppointmentPublicView } from "@/lib/appointments/appointment-types";
+
+interface BookingConfirmationProps {
+  appointment: AppointmentPublicView;
+}
+
+export function BookingConfirmation({ appointment }: BookingConfirmationProps) {
+  const start = new Date(appointment.startAt);
+  const end = new Date(appointment.endAt);
+  const dateLabel = new Intl.DateTimeFormat("en", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: appointment.timezone,
+  }).format(start);
+  const startTime = new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: appointment.timezone,
+  }).format(start);
+  const endTime = new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: appointment.timezone,
+  }).format(end);
+
+  return (
+    <div className="py-20 sm:py-28">
+      <PageContainer size="narrow">
+        <div className="text-center">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <CheckCircle2 aria-hidden="true" className="size-7" />
+          </div>
+          <p className="mt-6 text-sm font-medium text-muted-foreground">Booking confirmed</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">You’re all set, {appointment.patientName.split(" ")[0]}.</h1>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
+            Your appointment has been saved. Keep this page or use the management link below if you need to review or cancel it later.
+          </p>
+        </div>
+
+        <div className="mt-10 overflow-hidden rounded-3xl border bg-background shadow-sm">
+          <div className="bg-muted/40 p-6 sm:p-8">
+            <div className="flex items-start gap-4">
+              <CalendarCheck2 aria-hidden="true" className="mt-0.5 size-6 text-primary" />
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Appointment</p>
+                <h2 className="mt-1 text-xl font-semibold">{appointment.service.name}</h2>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-5 p-6 sm:grid-cols-2 sm:p-8">
+            <div><p className="text-sm font-medium">Date</p><p className="mt-1 text-sm text-muted-foreground">{dateLabel}</p></div>
+            <div><p className="text-sm font-medium">Time</p><p className="mt-1 text-sm text-muted-foreground">{startTime} – {endTime}</p></div>
+            <div><p className="text-sm font-medium">Timezone</p><p className="mt-1 text-sm text-muted-foreground">{appointment.timezone}</p></div>
+            <div><p className="text-sm font-medium">Confirmation</p><p className="mt-1 break-all font-mono text-xs text-muted-foreground">{appointment.confirmationToken}</p></div>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-2xl border p-5 sm:p-6">
+          <div className="flex gap-3">
+            <Mail aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Confirmation saved</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">Your booking is confirmed. Email notifications will be added in the notifications phase.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button asChild size="lg">
+            <Link href={`/appointment/${appointment.confirmationToken}`}>Manage appointment <ArrowRight aria-hidden="true" /></Link>
+          </Button>
+          <Button asChild size="lg" variant="outline">
+            <Link href="/">Return home</Link>
+          </Button>
+        </div>
+      </PageContainer>
+    </div>
+  );
+}
