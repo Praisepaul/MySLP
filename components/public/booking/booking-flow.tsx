@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { CalendarCheck2, CheckCircle2, ShieldCheck } from "lucide-react";
 import { BookingDateTimePicker } from "./booking-date-time-picker";
 import { BookingDetailsForm, type BookingDetails } from "./booking-details-form";
@@ -24,6 +24,14 @@ function getUpcomingDates(timezone: string, count: number) {
   const today = getDateParts(new Date(), timezone);
   const base = Date.UTC(Number(today.year), Number(today.month) - 1, Number(today.day));
   return Array.from({ length: count }, (_, index) => new Date(base + index * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+}
+
+function getBrowserTimezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+}
+
+function subscribeToTimezone() {
+  return () => undefined;
 }
 
 function Stepper({ step }: { step: BookingStep }) {
@@ -50,25 +58,18 @@ function Stepper({ step }: { step: BookingStep }) {
 export function BookingFlow() {
   const [step, setStep] = useState<BookingStep>(1);
   const [serviceId, setServiceId] = useState<string | null>(activeServices[0]?.id ?? null);
-  const [timezone, setTimezone] = useState("Asia/Kolkata");
-  const [dates, setDates] = useState<string[]>([]);
+  const timezone = useSyncExternalStore(subscribeToTimezone, getBrowserTimezone, () => "Asia/Kolkata");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<BookableSlot | null>(null);
-  const [slotsByDate, setSlotsByDate] = useState<Record<string, BookableSlot[]>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState<BookingDetails>({ name: "", email: "" });
 
   const service = useMemo(() => activeServices.find((item) => item.id === serviceId) ?? null, [serviceId]);
 
-  useEffect(() => {
-    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (browserTimezone) setTimezone(browserTimezone);
-  }, []);
+  const { dates, slotsByDate, error } = useMemo(() => {
+    if (!service || !timezone) {
+      return { dates: [], slotsByDate: {} as Record<string, BookableSlot[]>, error: null };
+    }
 
-  useEffect(() => {
-    if (!service || !timezone) return;
-    setLoading(true);
     const upcomingDates = getUpcomingDates(timezone, 14);
     const now = new Date();
     const nextSlots: Record<string, BookableSlot[]> = {};
@@ -83,19 +84,19 @@ export function BookingFlow() {
       }
     }
 
-    setDates(upcomingDates);
-    setSlotsByDate(nextSlots);
-    setSelectedDate((current) => current && (nextSlots[current] ?? []).length > 0 ? current : upcomingDates.find((date) => (nextSlots[date] ?? []).length > 0) ?? null);
-    setSelectedSlot(null);
-    setError(calculationError ? "We couldn't calculate every availability window. Please try another timezone or date." : null);
-    setLoading(false);
+    return {
+      dates: upcomingDates,
+      slotsByDate: nextSlots,
+      error: calculationError ? "We couldn't calculate every availability window. Please try another timezone or date." : null,
+    };
   }, [service, timezone]);
 
-  useEffect(() => {
-    if (!selectedDate || !selectedSlot) return;
-    const stillAvailable = (slotsByDate[selectedDate] ?? []).some((slot) => slot.start.getTime() === selectedSlot.start.getTime());
-    if (!stillAvailable) setSelectedSlot(null);
-  }, [selectedDate, selectedSlot, slotsByDate]);
+  const effectiveSelectedDate = selectedDate && (slotsByDate[selectedDate] ?? []).length > 0
+    ? selectedDate
+    : dates.find((date) => (slotsByDate[date] ?? []).length > 0) ?? null;
+  const effectiveSelectedSlot = effectiveSelectedDate && selectedSlot && (slotsByDate[effectiveSelectedDate] ?? []).some((slot) => slot.start.getTime() === selectedSlot.start.getTime())
+    ? selectedSlot
+    : null;
 
   if (!service || activeServices.length === 0) {
     return <div className="py-20 sm:py-28"><PageContainer size="narrow"><div className="rounded-3xl border border-dashed p-8 text-center sm:p-12"><CalendarCheck2 aria-hidden="true" className="mx-auto size-8 text-muted-foreground" /><h1 className="mt-4 text-2xl font-semibold">Booking is not available yet</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Please check back soon or contact the practice directly.</p></div></PageContainer></div>;
@@ -113,9 +114,9 @@ export function BookingFlow() {
           <Stepper step={step} />
           {error && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
           {step === 1 && <BookingServicePicker services={activeServices} selectedServiceId={serviceId} onSelect={setServiceId} onContinue={() => setStep(2)} />}
-          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={selectedDate} selectedSlot={selectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={loading} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); }} onSlotSelect={setSelectedSlot} onTimezoneChange={(value) => { setLoading(true); setTimezone(value); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
+          {step === 2 && <BookingDateTimePicker service={service} dates={dates} selectedDate={effectiveSelectedDate} selectedSlot={effectiveSelectedSlot} slotsByDate={slotsByDate} timezone={timezone} loading={false} onDateSelect={(date) => { setSelectedDate(date); setSelectedSlot(null); }} onSlotSelect={setSelectedSlot} onTimezoneChange={(value) => { setSelectedDate(null); setSelectedSlot(null); window.history.replaceState(null, "", window.location.href); if (value !== timezone) window.location.reload(); }} onBack={() => setStep(1)} onContinue={() => setStep(3)} />}
           {step === 3 && <BookingDetailsForm details={details} onChange={setDetails} onBack={() => setStep(2)} onContinue={() => setStep(4)} />}
-          {step === 4 && selectedSlot && <BookingSummary service={service} slot={selectedSlot} timezone={timezone} details={details} onBack={() => setStep(3)} onFinish={() => setStep(5)} />}
+          {step === 4 && effectiveSelectedSlot && <BookingSummary service={service} slot={effectiveSelectedSlot} timezone={timezone} details={details} onBack={() => setStep(3)} onFinish={() => setStep(5)} />}
         </div>
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck aria-hidden="true" className="size-4" /> Only scheduling details are collected.</div>
       </PageContainer>
