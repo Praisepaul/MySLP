@@ -11,24 +11,26 @@ When a patient books a Grace Sessions appointment, create the corresponding even
 - Public availability continues to use Google Calendar busy/free data.
 - Patient calendar support remains provider-neutral: Google Calendar, Apple Calendar, Outlook, and `.ics` are not dependent on therapist OAuth.
 - Final booking validation remains fail-closed.
-- Google Calendar event creation must not be treated as part of the MongoDB transaction.
-- If event creation fails after the appointment is committed, the appointment remains the authoritative booking and the system must expose a safe reconciliation path rather than silently losing the calendar projection.
+- Google Calendar event creation happens after the MongoDB booking transaction and is not part of that transaction.
+- If Google event creation fails after the appointment is committed, the appointment remains confirmed and the failure is recorded for reconciliation.
 
 ## OAuth scope
 
-Phase 9 uses `calendar.freebusy` for availability. Phase 10 adds `calendar.events` so the therapist can grant event creation/update access. Existing connections may need to re-authorize after the scope expansion.
+Phase 9 used `calendar.freebusy` for availability. Phase 10 adds `calendar.events` so the therapist can grant event creation/update access. Existing connections need to re-authorize after the scope expansion.
 
-## Event lifecycle
+## Event lifecycle implemented
 
-1. Validate and create the appointment transactionally in MongoDB.
-2. Create the therapist Google Calendar event after the MongoDB transaction commits.
-3. Persist the Google Calendar event ID and synchronization status on the appointment.
-4. Cancellation/rescheduling will update or remove the external event in the corresponding lifecycle phase.
+1. Validate the requested slot using MongoDB and live Google free/busy.
+2. Create the appointment and booking locks transactionally in MongoDB.
+3. Bump the public booking revision inside that transaction.
+4. After commit, create a deterministic Google Calendar event for the appointment.
+5. Persist the event ID and sync status on the appointment.
+6. On cancellation, remove the corresponding Google Calendar event when an event ID exists.
 
 ## Failure handling
 
-MongoDB and Google Calendar do not share an atomic transaction. A Google failure therefore cannot roll back a committed MongoDB appointment. The appointment must remain confirmed, while synchronization status records the failure for retry/reconciliation.
+MongoDB and Google Calendar do not share an atomic transaction. A Google failure therefore cannot roll back a committed MongoDB appointment. The appointment remains the authoritative booking, while `googleCalendar.syncStatus` records `synced`, `failed`, or `not_connected` and preserves an error for later reconciliation.
 
 ## Live availability
 
-Patient pages use the MongoDB booking-lock revision for rapid change detection. They must not poll Google Calendar directly every few seconds.
+Patient pages use the MongoDB availability revision every 3 seconds while visible. The fast polling endpoint never calls Google Calendar. Availability refreshes use the cached Google free/busy snapshot; final booking still performs the live Google check.
