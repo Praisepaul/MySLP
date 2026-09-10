@@ -2,7 +2,20 @@ import Link from "next/link";
 import { ArrowRight, Globe2 } from "lucide-react";
 import type { EditableTherapistProfile } from "@/lib/cms/site-settings-repository";
 
+function isLikelyImageUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    return /\.(avif|gif|jpe?g|png|webp)(?:$|[?#])/i.test(url.pathname + url.search);
+  } catch {
+    return false;
+  }
+}
+
 export function ProfileHero({ therapistProfile }: { therapistProfile: EditableTherapistProfile }) {
+  const imageUrl = therapistProfile.profileImage.trim();
+  const showImage = isLikelyImageUrl(imageUrl);
+
   return (
     <section aria-labelledby="profile-hero-title" className="relative overflow-hidden py-20 sm:py-28 lg:py-32">
       <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-80 bg-gradient-to-b from-muted/70 to-transparent" />
@@ -15,7 +28,7 @@ export function ProfileHero({ therapistProfile }: { therapistProfile: EditableTh
           <div className="mt-8 flex flex-col gap-3 sm:flex-row"><Link href="/#book" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Book a session<ArrowRight aria-hidden="true" className="size-4" /></Link><Link href="#about" className="inline-flex h-11 items-center justify-center rounded-lg border bg-background px-5 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Learn more</Link></div>
           {therapistProfile.credentials.length > 0 && <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground" aria-label="Professional credentials">{therapistProfile.credentials.map((credential) => <li key={credential}>{credential}</li>)}</ul>}
         </div>
-        <div className="mx-auto w-full max-w-md lg:justify-self-end"><div className="relative aspect-[4/5] overflow-hidden rounded-3xl border bg-muted shadow-sm">{therapistProfile.profileImage ? <img src={therapistProfile.profileImage} alt={therapistProfile.name ? `${therapistProfile.name}, ${therapistProfile.professionalTitle}` : "Therapist profile"} className="absolute inset-0 size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; event.currentTarget.nextElementSibling?.removeAttribute("hidden"); }} /> : null}<div hidden={Boolean(therapistProfile.profileImage)} className="flex h-full items-center justify-center p-8 text-center"><div><div className="mx-auto flex size-20 items-center justify-center rounded-full bg-background text-2xl font-semibold shadow-sm">G</div><p className="mt-5 text-sm font-medium">Your professional photo</p><p className="mt-2 text-sm leading-6 text-muted-foreground">Add a direct image address from the therapist profile page.</p></div></div></div></div>
+        <div className="mx-auto w-full max-w-md lg:justify-self-end"><div className="relative aspect-[4/5] overflow-hidden rounded-3xl border bg-muted shadow-sm" role={showImage ? "img" : undefined} aria-label={showImage ? (therapistProfile.name ? `${therapistProfile.name}, ${therapistProfile.professionalTitle}` : "Therapist profile") : undefined} style={showImage ? { backgroundImage: `url("${imageUrl.replace(/"/g, '%22')}")`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}>{!showImage&&<div className="flex h-full items-center justify-center p-8 text-center"><div><div className="mx-auto flex size-20 items-center justify-center rounded-full bg-background text-2xl font-semibold shadow-sm">G</div><p className="mt-5 text-sm font-medium">Your professional photo</p><p className="mt-2 text-sm leading-6 text-muted-foreground">Add a direct image address from the therapist profile page.</p></div></div>}</div></div>
       </div>
     </section>
   );
