@@ -40,6 +40,9 @@ export type AppointmentDocument = {
     lastSyncedAt?: Date;
     lastSyncError?: string;
   };
+  googleMeet?: {
+    joinUrl?: string;
+  };
 };
 
 export type AppointmentPublicView = {
@@ -53,6 +56,9 @@ export type AppointmentPublicView = {
   timezone: string;
   createdAt: string;
   cancelledAt?: string;
+  googleMeet?: {
+    joinUrl?: string;
+  };
 };
 
 export function isAppointmentStatus(value: unknown): value is AppointmentStatus {
