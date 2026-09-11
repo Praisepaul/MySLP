@@ -6,7 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -65,6 +64,11 @@ export function AdminAccountMenu() {
     setPasswordError("");
     setPasswordMessage("");
 
+    if (!newPassword) {
+      setPasswordError("Please enter a new password.");
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setPasswordError("The new passwords do not match.");
       return;
@@ -116,7 +120,6 @@ export function AdminAccountMenu() {
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Therapist account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled={photoUploading} onClick={() => fileInputRef.current?.click()}>
               {photoUploading ? <Loader2 className="animate-spin" /> : <Camera />}
@@ -170,12 +173,11 @@ export function AdminAccountMenu() {
             </div>
             <div className="space-y-2">
               <label htmlFor="admin-new-password" className="text-sm font-medium">New password</label>
-              <Input id="admin-new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" minLength={12} required />
-              <p className="text-xs text-muted-foreground">Use at least 12 characters.</p>
+              <Input id="admin-new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" required />
             </div>
             <div className="space-y-2">
               <label htmlFor="admin-confirm-password" className="text-sm font-medium">Confirm new password</label>
-              <Input id="admin-confirm-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={12} required />
+              <Input id="admin-confirm-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" required />
             </div>
 
             {passwordError && <p className="text-sm text-destructive" role="alert">{passwordError}</p>}
