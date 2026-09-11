@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { AdminAuthenticationError, AdminAuthenticationConfigurationError } from "@/lib/admin/auth";
 import { finishAdminPasskeyRegistration } from "@/lib/admin/passkeys";
-import type { RegistrationResponseJSON } from "@simplewebauthn/types";
+import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
