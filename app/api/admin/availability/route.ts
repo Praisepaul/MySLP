@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
+import { requireAdminSession } from "@/lib/admin/auth";
 import { bumpPublicAvailabilityRevision } from "@/lib/appointments/appointment-repository";
 import { validateAvailabilityException, validateAvailabilityRule, type AvailabilityException, type AvailabilityRule } from "@/lib/config/availability";
 import { getAvailabilityConfiguration, saveAvailabilityConfiguration } from "@/lib/cms/availability-repository";
@@ -7,16 +7,16 @@ import { getAvailabilityConfiguration, saveAvailabilityConfiguration } from "@/l
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isUnauthorized(error: unknown) { return error instanceof Error && error.message === "Google Calendar setup access is required."; }
+function isUnauthorized(error: unknown) { return error instanceof Error && error.message === "Admin authentication is required."; }
 
 export async function GET() {
-  try { await requireGoogleCalendarSetupAccess(); return NextResponse.json(await getAvailabilityConfiguration()); }
+  try { await requireAdminSession(); return NextResponse.json(await getAvailabilityConfiguration()); }
   catch (error) { return NextResponse.json({ error: isUnauthorized(error) ? "Admin access is required." : "We couldn't load availability." }, { status: isUnauthorized(error) ? 401 : 500 }); }
 }
 
 export async function PUT(request: Request) {
   try {
-    await requireGoogleCalendarSetupAccess();
+    await requireAdminSession();
     const body = await request.json();
     const rules = body?.rules as AvailabilityRule[];
     const exceptions = body?.exceptions as AvailabilityException[];
