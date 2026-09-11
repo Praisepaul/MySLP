@@ -89,6 +89,16 @@ export function AdminLoginForm({ configured }: AdminLoginFormProps) {
           </div>
         ) : (
           <div className="space-y-5">
+            <Button type="button" variant="outline" className="min-h-11 w-full" disabled={busy} onClick={() => void signInWithPasskey()}>
+              <ScanFace aria-hidden="true" />
+              Sign in with passkey
+            </Button>
+
+            <div className="relative flex items-center justify-center">
+              <span className="bg-card px-3 text-xs text-muted-foreground">or</span>
+              <span className="absolute inset-x-0 -z-10 border-t" aria-hidden="true" />
+            </div>
+
             <form
               className="space-y-5"
               onSubmit={(event) => {
@@ -109,16 +119,6 @@ export function AdminLoginForm({ configured }: AdminLoginFormProps) {
                 {busy ? "Signing in…" : "Sign in"}
               </Button>
             </form>
-
-            <div className="relative flex items-center justify-center">
-              <span className="bg-card px-3 text-xs text-muted-foreground">or</span>
-              <span className="absolute inset-x-0 -z-10 border-t" aria-hidden="true" />
-            </div>
-
-            <Button type="button" variant="outline" className="min-h-11 w-full" disabled={busy} onClick={() => void signInWithPasskey()}>
-              <ScanFace aria-hidden="true" />
-              Use a passkey
-            </Button>
           </div>
         )}
       </CardContent>
