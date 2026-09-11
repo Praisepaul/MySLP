@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { Input } from "@/components/ui/input";
 
@@ -33,29 +33,33 @@ function isValidTimezone(value: string) {
 export function TimezoneSelect({ id, value, onChange, label = "Timezone", required, className }: TimezoneSelectProps) {
   const timezones = useMemo(() => getTimezones(), []);
   const listId = `${id}-options`;
-  const [inputValue, setInputValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setInputValue(value);
+    const input = inputRef.current;
+    if (input && document.activeElement !== input && input.value !== value) {
+      input.value = value;
+    }
   }, [value]);
 
-  function handleChange(nextValue: string) {
-    setInputValue(nextValue);
+  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const nextValue = event.target.value;
     if (isValidTimezone(nextValue)) onChange(nextValue);
   }
 
-  function handleBlur() {
-    if (!isValidTimezone(inputValue)) setInputValue(value);
+  function handleBlur(event: React.FocusEvent<HTMLInputElement>) {
+    if (!isValidTimezone(event.target.value)) event.target.value = value;
   }
 
   return (
     <div className={className}>
       {label && <label htmlFor={id} className="mb-2 block text-sm font-medium">{label}</label>}
       <Input
+        ref={inputRef}
         id={id}
         list={listId}
-        value={inputValue}
-        onChange={(event) => handleChange(event.target.value)}
+        defaultValue={value}
+        onChange={handleChange}
         onBlur={handleBlur}
         placeholder="Search timezone, e.g. Asia/Kolkata"
         autoComplete="off"
