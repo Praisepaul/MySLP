@@ -58,7 +58,7 @@ test("Google refresh tokens remain encrypted before persistence", async () => {
   const repository = await source("lib/calendar/google-calendar-repository.ts");
 
   assert.match(cryptoSource, /aes-256-gcm/);
-  assert.match(repository, /encryptGoogleCalendarToken/);
+  assert.match(repository, /encryptGoogleRefreshToken/);
 });
 
 test("security headers remain configured in Next.js", async () => {
