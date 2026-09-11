@@ -4,8 +4,17 @@ import { changeAdminPassword, requireAdminSession } from "@/lib/admin/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function hasValidOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  return !origin || origin === new URL(request.url).origin;
+}
+
 export async function POST(request: Request) {
   try {
+    if (!hasValidOrigin(request)) {
+      return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+    }
+
     await requireAdminSession();
     const body = await request.json().catch(() => ({})) as {
       currentPassword?: unknown;
