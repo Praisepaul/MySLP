@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
+import { requireAdminSession } from "@/lib/admin/auth";
 import { getGoogleCalendarConnectionStatus } from "@/lib/calendar/google-calendar-repository";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    await requireGoogleCalendarSetupAccess();
+    await requireAdminSession();
     return NextResponse.json(await getGoogleCalendarConnectionStatus());
-  } catch {
-    return NextResponse.json({ error: "Google Calendar setup access is required." }, { status: 401 });
+  } catch (error) {
+    const unauthorized = error instanceof Error && error.message === "Admin authentication is required.";
+    return NextResponse.json({ error: unauthorized ? "Admin access is required." : "Google Calendar status could not be loaded." }, { status: unauthorized ? 401 : 500 });
   }
 }
