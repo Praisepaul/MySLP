@@ -48,14 +48,18 @@ function getEnvironmentPasswordHash(): string {
   return passwordHash;
 }
 
-async function getActivePasswordHash(): Promise<string> {
+async function getStoredCredentials(): Promise<AdminCredentialsRecord | null> {
   try {
     const db = await getMongoDb();
-    const stored = await db.collection<AdminCredentialsRecord>(adminCredentialsCollection).findOne({ _id: adminCredentialsId });
-    if (stored?.passwordHash) return stored.passwordHash;
+    return await db.collection<AdminCredentialsRecord>(adminCredentialsCollection).findOne({ _id: adminCredentialsId });
   } catch {
-    // The environment hash remains the bootstrap/fallback credential if Mongo is unavailable.
+    return null;
   }
+}
+
+async function getActivePasswordHash(): Promise<string> {
+  const stored = await getStoredCredentials();
+  if (stored?.passwordHash) return stored.passwordHash;
   return getEnvironmentPasswordHash();
 }
 
@@ -65,8 +69,11 @@ function getSessionSecret(): string {
   return secret;
 }
 
-export function isAdminAuthConfigured(): boolean {
-  return Boolean(process.env.GRACE_ADMIN_PASSWORD_HASH && process.env.GRACE_ADMIN_SESSION_SECRET?.length && process.env.GRACE_ADMIN_SESSION_SECRET.length >= 32 && adminUsername);
+export async function isAdminAuthConfigured(): Promise<boolean> {
+  if (!process.env.GRACE_ADMIN_SESSION_SECRET || process.env.GRACE_ADMIN_SESSION_SECRET.length < 32 || !adminUsername) return false;
+  if (process.env.GRACE_ADMIN_PASSWORD_HASH?.trim()) return true;
+  const stored = await getStoredCredentials();
+  return Boolean(stored?.passwordHash);
 }
 
 function credentialVersion(passwordHash: string): string {
@@ -252,7 +259,7 @@ async function clearFailedLogins(key: string): Promise<void> {
 }
 
 export async function isAdminAuthenticated(): Promise<boolean> {
-  if (!isAdminAuthConfigured()) return false;
+  if (!(await isAdminAuthConfigured())) return false;
   try {
     const cookieStore = await cookies();
     return verifySessionValue(cookieStore.get(adminSessionCookieName)?.value);
@@ -262,12 +269,12 @@ export async function isAdminAuthenticated(): Promise<boolean> {
 }
 
 export async function requireAdminSession(): Promise<void> {
-  if (!isAdminAuthConfigured()) throw new AdminAuthenticationConfigurationError();
+  if (!(await isAdminAuthConfigured())) throw new AdminAuthenticationConfigurationError();
   if (!(await isAdminAuthenticated())) throw new AdminAuthenticationError();
 }
 
 export async function loginAdmin(username: string, password: string, request: Request): Promise<"success" | "invalid" | "rate_limited"> {
-  if (!isAdminAuthConfigured()) throw new AdminAuthenticationConfigurationError();
+  if (!(await isAdminAuthConfigured())) throw new AdminAuthenticationConfigurationError();
 
   const normalizedUsername = username.trim().toLowerCase();
   const key = getRateLimitKey(normalizedUsername || "unknown", request);
