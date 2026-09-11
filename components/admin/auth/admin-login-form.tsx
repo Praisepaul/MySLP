@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ interface AdminLoginFormProps {
 }
 
 export function AdminLoginForm({ configured }: AdminLoginFormProps) {
+  const router = useRouter();
   const [username, setUsername] = useState("gracevpaul");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,7 +30,8 @@ export function AdminLoginForm({ configured }: AdminLoginFormProps) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error ?? "We couldn't sign you in.");
-      window.location.assign("/admin");
+      router.push("/admin");
+      router.refresh();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "We couldn't sign you in.");
     } finally {
