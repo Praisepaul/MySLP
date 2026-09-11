@@ -3,6 +3,8 @@ export const metadata = {
   description: "How to request deletion of personal information from Ephatha.",
 };
 
+const privacyEmail = "gracepaulaslp@gmail.com";
+
 export default function DataDeletionPage() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
@@ -16,7 +18,7 @@ export default function DataDeletionPage() {
 
         <h2>How to request deletion</h2>
         <p>
-          Use the Ephatha Contact page and state that you are making a data-deletion request. Tell us which appointment, contact interaction, or other information the request concerns. Do not send passwords, payment-card details, or unnecessary medical information with the request.
+          Email <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a> with the subject line "Data deletion request" and state that you are making a data-deletion request. Tell us which appointment, contact interaction, or other information the request concerns. Do not send passwords, payment-card details, or unnecessary medical information with the request.
         </p>
 
         <h2>Verification</h2>
