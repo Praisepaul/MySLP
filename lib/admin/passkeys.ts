@@ -16,8 +16,9 @@ const challengeMaxAgeSeconds = 5 * 60;
 const passkeyUserId = "admin";
 const passkeyUserName = "grace-admin";
 
-export type AdminPasskeyRecord = {
+type AdminPasskeyRecord = {
   _id: string;
+  userId: string;
   credentialId: string;
   publicKey: string;
   counter: number;
@@ -38,8 +39,7 @@ function getRpId(request: Request): string {
 }
 
 function getOrigin(request: Request): string {
-  const url = new URL(request.url);
-  return url.origin;
+  return new URL(request.url).origin;
 }
 
 function getChallengeSecret(): string {
@@ -90,17 +90,17 @@ async function clearChallengeCookie(): Promise<void> {
 
 async function listPasskeys(): Promise<AdminPasskeyRecord[]> {
   const db = await getMongoDb();
-  return db.collection<AdminPasskeyRecord>(passkeyCollection).find({ _id: passkeyUserId }).toArray();
+  return db.collection<AdminPasskeyRecord>(passkeyCollection).find({ userId: passkeyUserId }).toArray();
 }
 
 async function getPasskeyByCredentialId(credentialId: string): Promise<AdminPasskeyRecord | null> {
   const db = await getMongoDb();
-  return db.collection<AdminPasskeyRecord>(passkeyCollection).findOne({ credentialId });
+  return db.collection<AdminPasskeyRecord>(passkeyCollection).findOne({ credentialId, userId: passkeyUserId });
 }
 
 export async function hasAdminPasskeys(): Promise<boolean> {
   try {
-    return (await getMongoDb()).collection<AdminPasskeyRecord>(passkeyCollection).countDocuments({ _id: passkeyUserId }) > 0;
+    return (await getMongoDb()).collection<AdminPasskeyRecord>(passkeyCollection).countDocuments({ userId: passkeyUserId }) > 0;
   } catch {
     return false;
   }
@@ -144,7 +144,8 @@ export async function finishAdminPasskeyRegistration(request: Request, response:
   const { credential } = verification.registrationInfo;
   const db = await getMongoDb();
   await db.collection<AdminPasskeyRecord>(passkeyCollection).insertOne({
-    _id: passkeyUserId,
+    _id: credential.id,
+    userId: passkeyUserId,
     credentialId: credential.id,
     publicKey: Buffer.from(credential.publicKey).toString("base64url"),
     counter: credential.counter,
@@ -168,8 +169,7 @@ export async function finishAdminPasskeyAuthentication(request: Request, respons
   const expectedChallenge = consumeChallengeCookie((await cookies()).get(challengeCookieName)?.value, "authentication");
   if (!expectedChallenge) throw new Error("The passkey sign-in request has expired. Please try again.");
 
-  const credentialId = response.id;
-  const stored = await getPasskeyByCredentialId(credentialId);
+  const stored = await getPasskeyByCredentialId(response.id);
   if (!stored) return false;
 
   const verification = await verifyAuthenticationResponse({
@@ -189,7 +189,7 @@ export async function finishAdminPasskeyAuthentication(request: Request, respons
 
   const db = await getMongoDb();
   await db.collection<AdminPasskeyRecord>(passkeyCollection).updateOne(
-    { credentialId },
+    { _id: stored._id },
     { $set: { counter: verification.authenticationInfo.newCounter, lastUsedAt: new Date() } },
   );
   await clearChallengeCookie();
@@ -199,7 +199,7 @@ export async function finishAdminPasskeyAuthentication(request: Request, respons
 export async function getAdminPasskeyStatus(): Promise<{ enabled: boolean; count: number }> {
   if (!(await isAdminAuthenticated())) return { enabled: false, count: 0 };
   try {
-    const count = await (await getMongoDb()).collection<AdminPasskeyRecord>(passkeyCollection).countDocuments({ _id: passkeyUserId });
+    const count = await (await getMongoDb()).collection<AdminPasskeyRecord>(passkeyCollection).countDocuments({ userId: passkeyUserId });
     return { enabled: count > 0, count };
   } catch {
     return { enabled: false, count: 0 };
