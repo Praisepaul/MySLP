@@ -5,7 +5,7 @@
 ## Product / trust model
 - MongoDB is authoritative for Ephatha appointments, booking state, persisted CMS settings, and realtime revisions.
 - `appointment_booking_locks` protects booking concurrency. Never bypass booking validation or locks.
-- Google Calendar is the external therapist-calendar/free-busy signal and event projection; MongoDB remains authoritative if Google reconciliation fails.
+- Google Calendar is the external therapist-calendar/free/busy signal and event projection; MongoDB remains authoritative if Google reconciliation fails.
 - `googleCalendarConnectionId` is the Mongo connection identifier (`therapist`); `googleCalendarId` is the Google API calendar identifier (`primary`). Never mix them.
 - Online appointments request Google Meet through Calendar `conferenceData`.
 - Calendar create/update/delete uses `sendUpdates: all`.
@@ -23,6 +23,10 @@ Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoD
 - `/book`
 - `/appointment/[confirmationToken]`
 - `/appointment/[confirmationToken]/reschedule`
+- `/privacy-policy` — public Privacy Policy; includes Google user-data, retention, deletion, rights, security, and international-transfer disclosures.
+- `/terms` — public Terms of Service.
+- `/cookie-policy` — public Cookie Policy.
+- `/data-deletion` — public personal-data deletion instructions.
 - `/api/profile/image`
 - `/api/appointments/[confirmationToken]` — bearer capability; private/no-store
 - `/api/appointments/[confirmationToken]/ics` — bearer capability; private/no-store
@@ -90,6 +94,7 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - Refresh tokens are encrypted with AES-256-GCM using `GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY`.
 - Admin Calendar routes require `requireAdminSession()`.
 - Calendar failure never makes Mongo appointment state disappear.
+- Current OAuth scopes are `calendar.freebusy` and `calendar.events`; Privacy Policy documents the corresponding Google user-data access and Limited Use boundaries.
 
 ## Realtime UX
 - `lib/ui/use-data-sync.ts`
@@ -107,6 +112,7 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - `components/public/navigation/public-header.tsx`, `public-nav.tsx`, `mobile-nav.tsx` provide public navigation.
 - `components/public/booking/booking-flow.tsx` orchestrates service → date/time → details → review → appointment creation.
 - `booking-date-time-picker.tsx` uses responsive date/time grids and timezone selection.
+- `components/public/layout/public-footer.tsx` exposes Privacy Policy, Terms of Service, Cookie Policy, and Data Deletion links.
 - Global `app/globals.css` provides focus-visible outlines, antialiasing, base colors and Tailwind/shadcn theme tokens.
 - Phase 17 hardening added keyboard Escape handling, modal semantics, body-scroll locking and ≥44px touch targets to mobile navigation/account controls, password-policy hints, and `aria-current="step"` booking progress semantics.
 
@@ -121,6 +127,14 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 8. WebAuthn challenges are server-side and single-use.
 9. Bearer-token appointment responses are `private, no-store`.
 10. `next.config.ts` provides MIME-sniffing, clickjacking, referrer, Permissions-Policy, CSP baseline, production HSTS and disables `X-Powered-By`.
+11. Public legal pages contain no admin-session dependency and are intended to be crawlable for Google OAuth brand/privacy verification.
+
+## Legal / privacy architecture
+- `app/privacy-policy/page.tsx` — comprehensive privacy notice covering personal data, GDPR-style rights, retention/deletion, international transfers, security, minors, and Google Calendar user data.
+- `app/terms/page.tsx` — public terms covering booking, cancellation, online sessions, cross-border professional-service considerations, acceptable use, liability, and disputes.
+- `app/cookie-policy/page.tsx` — essential-cookie disclosure; no advertising or behavioral tracking cookies in the core application.
+- `app/data-deletion/page.tsx` — public deletion-request instructions and Google Calendar disconnect/deletion explanation.
+- These policies are written to support Google OAuth verification, but legal compliance or Google verification is not guaranteed merely by publishing them; actual product behavior, OAuth scopes, domain verification, consent-screen configuration, and contact/legal-entity information must remain consistent with the published disclosures.
 
 ## Phase status
 - Phases 0–13: **Complete**.
@@ -133,6 +147,7 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - Phase 18 automated testing/CI: **Removed** at the project owner's request. Temporary regression tests, browser smoke tests, Playwright configuration and CI workflow are no longer part of the application architecture.
 - Phase 19 production deployment: **Planned** — Vercel-only hosting is the current deployment architecture; MongoDB Atlas remains authoritative; Google Cloud OAuth remains the calendar integration. Cloudflare is optional only if a custom domain is introduced later.
 - Phase 20 handover: **Planned**.
+- Legal/privacy policy milestone: **Implemented on feature branch `feature/legal-policies`; requires owner review of legal identity/contact details and local/preview QA before merge to `main`.**
 
 ## Environment configuration
 Admin: `GRACE_ADMIN_USERNAME`, `GRACE_ADMIN_PASSWORD_HASH`, `GRACE_ADMIN_SESSION_SECRET`.
@@ -140,12 +155,13 @@ Production WebAuthn: `GRACE_ADMIN_ORIGIN`, `GRACE_ADMIN_RP_ID`.
 Google Calendar: `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `GOOGLE_CALENDAR_REDIRECT_URI`, `GOOGLE_CALENDAR_THERAPIST_EMAIL`, `GOOGLE_CALENDAR_OAUTH_STATE_SECRET`, `GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY`.
 
 ## Change discipline
-1. `main` is the working/source branch unless explicitly changed.
+1. `main` is the production/source-of-truth branch.
 2. Inspect latest `main` before every change.
-3. Reuse existing filenames/functions/types/services; do not create parallel scheduling logic or `-v2`/`-new` replacements.
-4. MongoDB remains the booking source of truth.
-5. Persisted services/availability/settings override static fallback after initialization.
-6. Never poll Google from public realtime loops.
-7. Every sensitive admin API must authenticate server-side; public routes must never gain admin-session dependencies.
-8. Passkeys belong only to the pre-created admin account.
-9. Before production-ready claims, run local lint, typecheck, build and relevant manual/lifecycle checks. No CI test suite is part of the project unless explicitly requested again.
+3. New features, fixes, refactors, security changes, and potentially disruptive changes should use a dedicated feature branch and Pull Request; do not push them directly to `main` unless explicitly authorized.
+4. Reuse existing filenames/functions/types/services; do not create parallel scheduling logic or `-v2`/`-new` replacements.
+5. MongoDB remains the booking source of truth.
+6. Persisted services/availability/settings override static fallback after initialization.
+7. Never poll Google from public realtime loops.
+8. Every sensitive admin API must authenticate server-side; public routes must never gain admin-session dependencies.
+9. Passkeys belong only to the pre-created admin account.
+10. Before production-ready claims, run local lint, typecheck, build and relevant manual/lifecycle checks. No CI test suite is part of the project unless explicitly requested again.
