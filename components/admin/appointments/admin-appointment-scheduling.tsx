@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, Check, ChevronLeft, ChevronRight, Loader2, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TimezoneSelect } from "@/components/ui/timezone-select";
@@ -66,29 +66,35 @@ export function AdminAppointmentScheduling({ target, onClose, onSaved }: Props) 
     return () => { cancelled = true; };
   }, []);
 
-  const loadAvailability = useCallback(async () => {
-    await Promise.resolve();
-    if (!serviceId || !timezone) return;
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAvailability() {
+      if (!serviceId || !timezone) return;
+      const nextDates = getUpcomingDates(timezone, dateOffset, 14);
+      try {
+        const response = await fetch("/api/availability", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", body: JSON.stringify({ serviceId, timezone, dates: nextDates }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "We couldn't check availability right now.");
+        if (cancelled) return;
+        const nextSlots = Object.fromEntries(Object.entries(data.slotsByDate as Record<string, SerializedSlot[]>).map(([date, slots]) => [date, slots.map((slot) => ({ ...slot, start: new Date(slot.start), end: new Date(slot.end) }))]));
+        setLoading(false);
+        setError(null);
+        setDates(nextDates);
+        setSlotsByDate(nextSlots);
+        setSelectedDate((current) => current && (nextSlots[current] ?? []).length > 0 ? current : nextDates.find((date) => (nextSlots[date] ?? []).length > 0) ?? null);
+        setSelectedSlot((current) => current && (nextSlots[dateKey(current.start, timezone)] ?? []).some((slot) => slot.start.getTime() === current.start.getTime()) ? current : null);
+      } catch (requestError) {
+        if (cancelled) return;
+        setLoading(false);
+        setError(requestError instanceof Error ? requestError.message : "We couldn't check availability right now.");
+        setDates(nextDates);
+        setSlotsByDate(Object.fromEntries(nextDates.map((date) => [date, []])));
+      }
+    }
     setLoading(true);
-    setError(null);
-    const nextDates = getUpcomingDates(timezone, dateOffset, 14);
-    try {
-      const response = await fetch("/api/availability", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", body: JSON.stringify({ serviceId, timezone, dates: nextDates }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "We couldn't check availability right now.");
-      const nextSlots = Object.fromEntries(Object.entries(data.slotsByDate as Record<string, SerializedSlot[]>).map(([date, slots]) => [date, slots.map((slot) => ({ ...slot, start: new Date(slot.start), end: new Date(slot.end) }))]));
-      setDates(nextDates);
-      setSlotsByDate(nextSlots);
-      setSelectedDate((current) => current && (nextSlots[current] ?? []).length > 0 ? current : nextDates.find((date) => (nextSlots[date] ?? []).length > 0) ?? null);
-      setSelectedSlot((current) => current && (nextSlots[dateKey(current.start, timezone)] ?? []).some((slot) => slot.start.getTime() === current.start.getTime()) ? current : null);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "We couldn't check availability right now.");
-      setDates(nextDates);
-      setSlotsByDate(Object.fromEntries(nextDates.map((date) => [date, []])));
-    } finally { setLoading(false); }
+    void loadAvailability();
+    return () => { cancelled = true; };
   }, [dateOffset, serviceId, timezone]);
-
-  useEffect(() => { void loadAvailability(); }, [loadAvailability]);
 
   async function saveAppointment() {
     if (!service || !selectedSlot) return;
