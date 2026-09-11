@@ -66,10 +66,6 @@ export function TimezoneSelect({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
-  useEffect(() => {
-    if (!open) setQuery(value);
-  }, [value, open]);
-
   function selectTimezone(timezone: string) {
     setQuery(timezone);
     setOpen(false);
@@ -88,6 +84,7 @@ export function TimezoneSelect({
 
   function handleBlur() {
     window.setTimeout(() => {
+      setOpen(false);
       if (!isValidTimezone(query)) setQuery(value);
     }, 0);
   }
