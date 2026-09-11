@@ -122,19 +122,6 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 9. Bearer-token appointment responses are `private, no-store`.
 10. `next.config.ts` provides MIME-sniffing, clickjacking, referrer, Permissions-Policy, CSP baseline, production HSTS and disables `X-Powered-By`.
 
-## Automated testing architecture — Phase 18
-### Tooling
-- `tsx` runs TypeScript core regression tests.
-- `@playwright/test` runs browser smoke tests.
-- `playwright.config.ts` defines Chromium mobile (`Pixel 5`), tablet (`iPad Mini`) and desktop projects.
-- `.github/workflows/quality.yml` runs install → lint → core tests → production build → Chromium install → responsive/security E2E tests on `main` and pull requests.
-
-### Tests
-- `tests/booking-engine.test.ts` — 24-hour time parsing/formatting, invalid time rejection, overlap boundaries, buffer conflicts, conflict grouping, availability validation.
-- `tests/slot-engine.test.ts` — weekly availability, timezone conversion, partial-day exceptions, conflicts, minimum notice and maximum advance horizon.
-- `tests/security-invariants.test.ts` — admin API server-side auth enforcement, appointment no-store, WebAuthn production configuration, AES-256-GCM token protection, security headers.
-- `tests/e2e/admin-and-responsive.spec.ts` — admin-login mobile/tablet/desktop smoke, no horizontal overflow, `/admin` redirect isolation, unauthenticated admin API rejection, response security headers.
-
 ## Phase status
 - Phases 0–13: **Complete**.
 - Phase 14 internationalization: **Removed; English-only**.
@@ -142,8 +129,8 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - Phase 16A admin identity/private isolation: **Complete**.
 - Phase 16B passkeys/WebAuthn: **Complete and browser ceremony validated**.
 - Phase 16C security/privacy audit/remediation: **Complete**; report `docs/SECURITY_AUDIT_16C.md`.
-- Phase 17 responsive/accessibility final pass: **Implemented initial final-pass hardening**; browser CI validation is active and additional page-specific visual review remains part of final production QA.
-- Phase 18 automated testing: **Implemented baseline regression + responsive/security CI suite**. Full Mongo/Google lifecycle integration tests remain a pre-production expansion because they require controlled test infrastructure/credentials.
+- Phase 17 responsive/accessibility final pass: **Implemented initial final-pass hardening**; remaining validation is manual/local production QA rather than CI browser tests.
+- Phase 18 automated testing/CI: **Removed** at the project owner's request. Temporary regression tests, browser smoke tests, Playwright configuration and CI workflow are no longer part of the application architecture.
 - Phase 19 production deployment: **Planned** — Cloudflare edge/WAF/analytics in front of Vercel is the preferred architecture; MongoDB Atlas remains authoritative; Google Cloud OAuth remains the calendar integration.
 - Phase 20 handover: **Planned**.
 
@@ -161,4 +148,4 @@ Google Calendar: `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `
 6. Never poll Google from public realtime loops.
 7. Every sensitive admin API must authenticate server-side; public routes must never gain admin-session dependencies.
 8. Passkeys belong only to the pre-created admin account.
-9. Before production-ready claims, run lint, typecheck, build, diff checks and relevant lifecycle/security tests. Local runtime validation may be supplemented by the GitHub Actions quality gate when the local environment cannot execute the full stack.
+9. Before production-ready claims, run local lint, typecheck, build and relevant manual/lifecycle checks. No CI test suite is part of the project unless explicitly requested again.
