@@ -45,11 +45,32 @@ export function PublicFooter() {
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold">Languages</h2>
+          <h2 className="text-sm font-semibold">Legal & privacy</h2>
 
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            English · Português · हिन्दी
-          </p>
+          <nav className="mt-4" aria-label="Legal navigation">
+            <ul className="space-y-3 text-sm text-muted-foreground">
+              <li>
+                <Link href="/privacy-policy" className="hover:text-foreground">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="hover:text-foreground">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link href="/cookie-policy" className="hover:text-foreground">
+                  Cookie Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/data-deletion" className="hover:text-foreground">
+                  Data Deletion
+                </Link>
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
 
