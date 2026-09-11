@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from
 import { cookies } from "next/headers";
 import { getMongoDb } from "@/lib/db/mongodb";
 
-const adminSessionCookieName = "grace_admin_session";
+const adminSessionCookieName = "__Host-grace_admin_session";
 const adminSessionMaxAgeSeconds = 8 * 60 * 60;
 const adminLoginRateLimitCollection = "admin_login_rate_limits";
 const adminCredentialsCollection = "admin_credentials";
@@ -90,7 +90,7 @@ export async function establishAdminSession(): Promise<void> {
   cookieStore.set(adminSessionCookieName, await createSessionValue(adminUsername), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
     path: "/",
     maxAge: adminSessionMaxAgeSeconds,
   });
@@ -129,7 +129,7 @@ function parsePasswordHash(encoded: string): { n: number; r: number; p: number; 
   const r = Number(parts[2]);
   const p = Number(parts[3]);
   if (!Number.isInteger(n) || !Number.isInteger(r) || !Number.isInteger(p)) return null;
-  if (n < 16 || (n & (n - 1)) !== 0 || r < 1 || p < 1) return null;
+  if (n < 16 || n > 65_536 || (n & (n - 1)) !== 0 || r < 1 || r > 32 || p < 1 || p > 8) return null;
   try {
     return {
       n,
@@ -161,8 +161,8 @@ function verifyPasswordAgainstHash(password: string, encodedHash: string): boole
 
 export function hashAdminPassword(password: string): string {
   const salt = randomBytes(16);
-  const hash = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
-  return `scrypt$16384$8$1$${salt.toString("base64url")}$${hash.toString("base64url")}`;
+  const hash = scryptSync(password, salt, 64, { N: 32_768, r: 8, p: 2, maxmem: 64 * 1024 * 1024 });
+  return `scrypt$32768$8$2$${salt.toString("base64url")}$${hash.toString("base64url")}`;
 }
 
 export async function verifyAdminPassword(password: string): Promise<boolean> {
