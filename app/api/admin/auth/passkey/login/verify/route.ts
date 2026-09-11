@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { establishAdminSession } from "@/lib/admin/auth";
 import { finishAdminPasskeyAuthentication } from "@/lib/admin/passkeys";
-import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
+import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
