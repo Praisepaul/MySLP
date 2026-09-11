@@ -85,6 +85,17 @@ async function createSessionValue(username: string): Promise<string> {
   return `${payload}.${signSessionPayload(payload)}`;
 }
 
+async function setAdminSession(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(adminSessionCookieName, await createSessionValue(adminUsername), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: adminSessionMaxAgeSeconds,
+  });
+}
+
 async function verifySessionValue(rawValue: string | undefined): Promise<boolean> {
   if (!rawValue) return false;
 
@@ -158,11 +169,9 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
   return verifyPasswordAgainstHash(password, await getActivePasswordHash());
 }
 
-export async function changeAdminPassword(currentPassword: string, newPassword: string): Promise<void> {
+export async function changeAdminPassword(currentPassword: string, newPassword: string): Promise<boolean> {
   const activePasswordHash = await getActivePasswordHash();
-  if (!verifyPasswordAgainstHash(currentPassword, activePasswordHash)) {
-    throw new AdminAuthenticationError();
-  }
+  if (!verifyPasswordAgainstHash(currentPassword, activePasswordHash)) return false;
 
   const passwordHash = hashAdminPassword(newPassword);
   const db = await getMongoDb();
@@ -171,6 +180,9 @@ export async function changeAdminPassword(currentPassword: string, newPassword: 
     { $set: { username: adminUsername, passwordHash, updatedAt: new Date() } },
     { upsert: true },
   );
+
+  await setAdminSession();
+  return true;
 }
 
 function getClientAddress(request: Request): string {
@@ -265,14 +277,7 @@ export async function loginAdmin(username: string, password: string, request: Re
   if (!valid) return (await recordFailedLogin(key)) ? "rate_limited" : "invalid";
 
   await clearFailedLogins(key);
-  const cookieStore = await cookies();
-  cookieStore.set(adminSessionCookieName, await createSessionValue(adminUsername), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: adminSessionMaxAgeSeconds,
-  });
+  await setAdminSession();
   return "success";
 }
 
