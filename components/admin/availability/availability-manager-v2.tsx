@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,4 +9,254 @@ import { AvailabilityExceptionForm } from "@/components/admin/availability/avail
 import { AvailabilityRulesListV2 } from "@/components/admin/availability/availability-rules-list-v2";
 import { AvailabilityExceptionsListV2 } from "@/components/admin/availability/availability-exceptions-list-v2";
 import type { AvailabilityException, AvailabilityRule } from "@/lib/config/availability";
-export function AvailabilityManagerV2({initialRules,initialExceptions}:{initialRules:AvailabilityRule[];initialExceptions:AvailabilityException[]}){const[rules,setRules]=useState(initialRules),[exceptions,setExceptions]=useState(initialExceptions),[editingRule,setEditingRule]=useState<AvailabilityRule>(), [editingException,setEditingException]=useState<AvailabilityException>(),[showNewRule,setShowNewRule]=useState(false),[showNewException,setShowNewException]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");async function save(nextRules:AvailabilityRule[],nextExceptions:AvailabilityException[]){setBusy(true);setError("");try{const r=await fetch("/api/admin/availability",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({rules:nextRules,exceptions:nextExceptions})});const data=await r.json();if(!r.ok)throw new Error(data.error??"Couldn't save availability.");setRules(data.rules);setExceptions(data.exceptions);close()}catch(e){setError(e instanceof Error?e.message:"Couldn't save availability.")}finally{setBusy(false)}}function close(){setEditingRule(undefined);setEditingException(undefined);setShowNewRule(false);setShowNewException(false)}function saveRule(rule:AvailabilityRule){const next=[...rules],i=next.findIndex(x=>x.id===rule.id);if(i>=0)next[i]=rule;else next.push(rule);void save(next,exceptions)}function saveException(item:AvailabilityException){const next=[...exceptions],i=next.findIndex(x=>x.id===item.id);if(i>=0)next[i]=item;else next.push(item);void save(rules,next)}return <div className="space-y-10">{error&&<p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}<section><div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-lg font-semibold">Weekly availability</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">These recurring hours will be used as the starting point for calculating bookable times.</p></div><Button type="button" onClick={()=>{close();setShowNewRule(true)}}><Plus className="size-4"/>Add availability</Button></div><AvailabilityRulesListV2 rules={rules} editingId={editingRule?.id} onEdit={rule=>{setEditingRule(rule);setShowNewRule(false)}} onSetActive={(id,active)=>void save(rules.map(x=>x.id===id?{...x,active}:x),exceptions)} busy={busy} renderEditor={rule=><AvailabilityRuleForm key={rule.id} initialRule={rule} onCancel={close} onSubmit={saveRule}/>} />{showNewRule&&<Card className="mt-4"><CardHeader><CardTitle>Add availability</CardTitle></CardHeader><CardContent><AvailabilityRuleForm onCancel={close} onSubmit={saveRule}/></CardContent></Card>}</section><section><div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-lg font-semibold">Exceptions</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Block specific dates or replace your normal hours for a particular date.</p></div><Button type="button" variant="outline" onClick={()=>{close();setShowNewException(true)}}><Plus className="size-4"/>Add exception</Button></div><AvailabilityExceptionsListV2 exceptions={exceptions} editingId={editingException?.id} onEdit={item=>{setEditingException(item);setShowNewException(false)}} onDelete={id=>void save(rules,exceptions.filter(x=>x.id!==id))} busy={busy} renderEditor={item=><AvailabilityExceptionForm key={item.id} initialException={item} onCancel={close} onSubmit={saveException}/>} />{showNewException&&<Card className="mt-4"><CardHeader><CardTitle>Add exception</CardTitle></CardHeader><CardContent><AvailabilityExceptionForm onCancel={close} onSubmit={saveException}/></CardContent></Card>}</section></div>}
+
+interface AvailabilityManagerV2Props {
+  initialRules: AvailabilityRule[];
+  initialExceptions: AvailabilityException[];
+}
+
+export function AvailabilityManagerV2({
+  initialRules,
+  initialExceptions,
+}: AvailabilityManagerV2Props) {
+  const [rules, setRules] = useState(initialRules);
+  const [exceptions, setExceptions] = useState(initialExceptions);
+  const [editingRule, setEditingRule] = useState<AvailabilityRule>();
+  const [editingException, setEditingException] = useState<AvailabilityException>();
+  const [showNewRule, setShowNewRule] = useState(false);
+  const [showNewException, setShowNewException] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save(
+    nextRules: AvailabilityRule[],
+    nextExceptions: AvailabilityException[],
+  ) {
+    setBusy(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/admin/availability", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rules: nextRules, exceptions: nextExceptions }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Couldn't save availability.");
+      }
+
+      setRules(data.rules);
+      setExceptions(data.exceptions);
+      close();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Couldn't save availability.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function close() {
+    setEditingRule(undefined);
+    setEditingException(undefined);
+    setShowNewRule(false);
+    setShowNewException(false);
+  }
+
+  function saveRules(nextRulesFromForm: AvailabilityRule[]) {
+    const replacingId = editingRule?.id;
+    const remainingRules = replacingId
+      ? rules.filter((rule) => rule.id !== replacingId)
+      : rules;
+
+    for (const rule of nextRulesFromForm) {
+      const collision = remainingRules.find(
+        (existing) =>
+          existing.dayOfWeek === rule.dayOfWeek &&
+          existing.startTime === rule.startTime &&
+          existing.endTime === rule.endTime &&
+          existing.id !== rule.id,
+      );
+
+      if (collision) {
+        setError(
+          `${rule.dayOfWeek.charAt(0).toUpperCase()}${rule.dayOfWeek.slice(1)} already has this availability window.`,
+        );
+        return;
+      }
+    }
+
+    const next = [...remainingRules];
+
+    for (const rule of nextRulesFromForm) {
+      const index = next.findIndex((existing) => existing.id === rule.id);
+      if (index >= 0) {
+        next[index] = rule;
+      } else {
+        next.push(rule);
+      }
+    }
+
+    void save(next, exceptions);
+  }
+
+  function saveException(item: AvailabilityException) {
+    const next = [...exceptions];
+    const index = next.findIndex((exception) => exception.id === item.id);
+
+    if (index >= 0) {
+      next[index] = item;
+    } else {
+      next.push(item);
+    }
+
+    void save(rules, next);
+  }
+
+  return (
+    <div className="space-y-10">
+      {error && (
+        <p
+          role="alert"
+          className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
+
+      <section>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Weekly availability</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Set your normal recurring hours. You can apply the same hours to
+              several days at once.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => {
+              close();
+              setShowNewRule(true);
+            }}
+          >
+            <Plus className="size-4" />
+            Add availability
+          </Button>
+        </div>
+
+        <AvailabilityRulesListV2
+          rules={rules}
+          editingId={editingRule?.id}
+          onEdit={(rule) => {
+            setError("");
+            setEditingRule(rule);
+            setShowNewRule(false);
+          }}
+          onSetActive={(id, active) =>
+            void save(
+              rules.map((rule) => (rule.id === id ? { ...rule, active } : rule)),
+              exceptions,
+            )
+          }
+          onDelete={(id) =>
+            void save(
+              rules.filter((rule) => rule.id !== id),
+              exceptions,
+            )
+          }
+          busy={busy}
+          renderEditor={(rule) => (
+            <AvailabilityRuleForm
+              key={rule.id}
+              initialRule={rule}
+              onCancel={close}
+              onSubmitRules={saveRules}
+            />
+          )}
+        />
+
+        {showNewRule && (
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Add availability</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AvailabilityRuleForm
+                onCancel={close}
+                onSubmitRules={saveRules}
+              />
+            </CardContent>
+          </Card>
+        )}
+      </section>
+
+      <section>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Date-specific changes</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Use a specific date when a day differs from your normal weekly
+              schedule. These changes take priority over recurring hours.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              close();
+              setShowNewException(true);
+            }}
+          >
+            <Plus className="size-4" />
+            Add exception
+          </Button>
+        </div>
+
+        <AvailabilityExceptionsListV2
+          exceptions={exceptions}
+          editingId={editingException?.id}
+          onEdit={(item) => {
+            setError("");
+            setEditingException(item);
+            setShowNewException(false);
+          }}
+          onDelete={(id) =>
+            void save(
+              rules,
+              exceptions.filter((exception) => exception.id !== id),
+            )
+          }
+          busy={busy}
+          renderEditor={(item) => (
+            <AvailabilityExceptionForm
+              key={item.id}
+              initialException={item}
+              onCancel={close}
+              onSubmit={saveException}
+            />
+          )}
+        />
+
+        {showNewException && (
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Add exception</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AvailabilityExceptionForm
+                onCancel={close}
+                onSubmit={saveException}
+              />
+            </CardContent>
+          </Card>
+        )}
+      </section>
+    </div>
+  );
+}
