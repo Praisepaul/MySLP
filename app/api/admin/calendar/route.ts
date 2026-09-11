@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
+import { requireAdminSession } from "@/lib/admin/auth";
 import { findAdminAppointments } from "@/lib/appointments/appointment-repository";
 import { getGoogleCalendarEvents, getCachedGoogleCalendarBusyIntervals } from "@/lib/calendar/google-calendar-service";
 
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    await requireGoogleCalendarSetupAccess();
+    await requireAdminSession();
     const url = new URL(request.url);
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
