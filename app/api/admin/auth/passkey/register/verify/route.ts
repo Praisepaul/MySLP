@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null) as RegistrationResponseJSON | null;
     if (!body?.id || !body?.response) return NextResponse.json({ error: "Invalid passkey response." }, { status: 400 });
-    await finishAdminPasskeyRegistration(body);
+    await finishAdminPasskeyRegistration(request, body);
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof AdminAuthenticationError) return NextResponse.json({ error: "Admin authentication is required." }, { status: 401 });
