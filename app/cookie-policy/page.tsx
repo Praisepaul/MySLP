@@ -3,6 +3,8 @@ export const metadata = {
   description: "How Ephatha uses cookies and similar technologies.",
 };
 
+const privacyEmail = "gracepaulaslp@gmail.com";
+
 export default function CookiePolicyPage() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
@@ -44,7 +46,7 @@ export default function CookiePolicyPage() {
 
         <h2>6. Contact</h2>
         <p>
-          Questions about cookies or privacy should be sent through the Ephatha Contact page.
+          Questions about cookies or privacy should be sent to <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
         </p>
       </article>
     </main>
