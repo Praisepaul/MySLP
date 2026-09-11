@@ -21,11 +21,11 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
   const profile = await getTherapistProfile();
 
   return <AdminShell><PageContainer className="space-y-8">
-    <div><p className="text-sm font-medium text-muted-foreground">Scheduling</p><h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Calendar</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">See the therapist&apos;s schedule in one place, including Grace Sessions appointments and Google Calendar events.</p></div>
+    <div><p className="text-sm font-medium text-muted-foreground">Scheduling</p><h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Calendar</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">See the therapist&apos;s schedule in one place, including Ephatha appointments and Google Calendar events.</p></div>
     {params.connected === "1" && <div role="status" className="rounded-2xl border bg-primary/5 px-5 py-4 text-sm">Google Calendar connected successfully.</div>}
     {params.error && errorMessages[params.error] && <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">{errorMessages[params.error]}</div>}
     <AdminCalendar timezone={profile.timezone || "Asia/Kolkata"} />
     <GoogleCalendarCard configured={configured} connected={status.connected} calendarId={status.calendarId} connectedAt={status.connectedAt} />
-    <div className="rounded-2xl border bg-muted/20 p-5 text-sm leading-6 text-muted-foreground sm:p-6"><p className="font-medium text-foreground">How this works</p><p className="mt-2 max-w-3xl">Grace Sessions keeps MongoDB as the source of truth. Google Calendar is an external schedule signal. The schedule view loads a selected week when you open or navigate it; it does not continuously poll Google Calendar.</p></div>
+    <div className="rounded-2xl border bg-muted/20 p-5 text-sm leading-6 text-muted-foreground sm:p-6"><p className="font-medium text-foreground">How this works</p><p className="mt-2 max-w-3xl">Ephatha keeps MongoDB as the source of truth. Google Calendar is an external schedule signal. The schedule view loads a selected week when you open or navigate it; it does not continuously poll Google Calendar.</p></div>
   </PageContainer></AdminShell>;
 }

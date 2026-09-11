@@ -56,12 +56,12 @@ export function AdminMobileNav({ open, onClose }: AdminMobileNavProps) {
             className="flex items-center gap-3"
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground">
-              G
+              E
             </span>
 
             <div>
               <p className="text-sm font-semibold tracking-tight">
-                Grace Sessions
+                Ephatha
               </p>
               <p className="text-xs text-muted-foreground">Admin</p>
             </div>

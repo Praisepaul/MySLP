@@ -98,7 +98,7 @@ export async function createGoogleCalendarAppointmentEvent(appointment: Appointm
       conferenceDataVersion: 1,
       requestBody: {
         id: eventId,
-        summary: `Grace Sessions — ${appointment.service.name}`,
+        summary: `Ephatha — ${appointment.service.name}`,
         description: getEventDescription(appointment),
         start: { dateTime: appointment.startAt.toISOString(), timeZone: appointment.timezone },
         end: { dateTime: appointment.endAt.toISOString(), timeZone: appointment.timezone },
@@ -125,7 +125,7 @@ export async function updateGoogleCalendarAppointmentEvent(appointment: Appointm
     sendUpdates: "all",
     conferenceDataVersion: 1,
     requestBody: {
-      summary: `Grace Sessions — ${appointment.service.name}`,
+      summary: `Ephatha — ${appointment.service.name}`,
       description: getEventDescription(appointment),
       start: { dateTime: appointment.startAt.toISOString(), timeZone: appointment.timezone },
       end: { dateTime: appointment.endAt.toISOString(), timeZone: appointment.timezone },

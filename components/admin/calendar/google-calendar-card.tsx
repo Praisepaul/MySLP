@@ -21,7 +21,7 @@ export function GoogleCalendarCard({ configured, connected, connectedAt, calenda
   const [error, setError] = useState<string | null>(null);
 
   async function disconnect() {
-    if (!window.confirm("Disconnect Google Calendar from Grace Sessions?")) return;
+    if (!window.confirm("Disconnect Google Calendar from Ephatha?")) return;
     setBusy(true);
     setError(null);
     try {

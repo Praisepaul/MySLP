@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Grace Sessions",
-    template: "%s | Grace Sessions",
+    default: "Ephatha",
+    template: "%s | Ephatha",
   },
   description:
     "Professional speech and language services with simple online booking.",

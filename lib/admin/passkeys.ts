@@ -153,11 +153,11 @@ export async function beginAdminPasskeyRegistration(request: Request) {
   const existing = await listPasskeys();
   const { rpID } = getConfiguredRp(request);
   const options = await generateRegistrationOptions({
-    rpName: "Grace Session Scheduler",
+    rpName: "Ephatha",
     rpID,
     userID: Buffer.from(passkeyUserId),
     userName: passkeyUserName,
-    userDisplayName: "Grace therapist account",
+    userDisplayName: "Ephatha therapist account",
     timeout: 60_000,
     attestationType: "none",
     excludeCredentials: existing.map((credential) => ({ id: credential.credentialId, transports: credential.transports as never })),

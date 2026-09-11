@@ -20,18 +20,18 @@ function formatIcsDate(value: string): string {
 }
 
 function buildIcs(appointment: ReturnType<typeof toAppointmentPublicView>): string {
-  const title = `Grace Sessions — ${appointment.service.name}`;
-  const description = `Appointment with Grace Sessions. Service: ${appointment.service.name}.`;
+  const title = `Ephatha — ${appointment.service.name}`;
+  const description = `Appointment with Ephatha. Service: ${appointment.service.name}.`;
   const now = new Date().toISOString();
 
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Grace Sessions//Appointment Calendar//EN",
+    "PRODID:-//Ephatha//Appointment Calendar//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:${appointment.confirmationToken}@grace-sessions`,
+    `UID:${appointment.confirmationToken}@ephatha`,
     `DTSTAMP:${formatIcsDate(now)}`,
     `DTSTART:${formatIcsDate(appointment.startAt)}`,
     `DTEND:${formatIcsDate(appointment.endAt)}`,
@@ -61,7 +61,7 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="grace-sessions-${confirmationToken}.ics"`,
+      "Content-Disposition": `attachment; filename="ephatha-${confirmationToken}.ics"`,
       "Cache-Control": "private, no-store",
     },
   });

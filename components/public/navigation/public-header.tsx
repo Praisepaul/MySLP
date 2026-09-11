@@ -7,9 +7,9 @@ export function PublicHeader() {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2" aria-label="Grace Session Scheduler home">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground">G</span>
-          <span className="text-sm font-semibold tracking-tight sm:text-base">Grace Sessions</span>
+        <Link href="/" className="flex items-center gap-2" aria-label="Ephatha home">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground">E</span>
+          <span className="text-sm font-semibold tracking-tight sm:text-base">Ephatha</span>
         </Link>
         <div className="flex items-center gap-4">
           <PublicNav />

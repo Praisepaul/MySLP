@@ -6,7 +6,7 @@ export function PublicFooter() {
       <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
         <div>
           <Link href="/" className="text-sm font-semibold tracking-tight">
-            Grace Sessions
+            Ephatha
           </Link>
 
           <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
@@ -55,7 +55,7 @@ export function PublicFooter() {
 
       <div className="border-t">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-muted-foreground sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
-          <p>© {new Date().getFullYear()} Grace Sessions.</p>
+          <p>© {new Date().getFullYear()} Ephatha.</p>
           <p>Professional speech and language services.</p>
         </div>
       </div>

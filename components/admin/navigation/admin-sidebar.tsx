@@ -8,15 +8,15 @@ export function AdminSidebar() {
         <Link
           href="/admin"
           className="flex items-center gap-3"
-          aria-label="Grace Sessions admin dashboard"
+          aria-label="Ephatha admin dashboard"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground">
-            G
+            E
           </span>
 
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold tracking-tight">
-              Grace Sessions
+              Ephatha
             </p>
             <p className="text-xs text-muted-foreground">Admin</p>
           </div>

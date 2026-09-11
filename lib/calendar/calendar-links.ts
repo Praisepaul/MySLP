@@ -5,11 +5,11 @@ function formatCalendarDate(value: string): string {
 }
 
 function getCalendarTitle(appointment: AppointmentPublicView): string {
-  return `Grace Sessions — ${appointment.service.name}`;
+  return `Ephatha — ${appointment.service.name}`;
 }
 
 function getCalendarDescription(appointment: AppointmentPublicView): string {
-  return `Appointment with Grace Sessions. Service: ${appointment.service.name}.`;
+  return `Appointment with Ephatha. Service: ${appointment.service.name}.`;
 }
 
 export function getGoogleCalendarUrl(appointment: AppointmentPublicView): string {
