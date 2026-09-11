@@ -144,7 +144,7 @@ export function AdminAccountMenu() {
 
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-semibold outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex size-11 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-semibold outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             aria-label="Open therapist account menu"
           >
             {hasAvatar ? (
@@ -194,8 +194,9 @@ export function AdminAccountMenu() {
           </DialogHeader>
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div className="space-y-2"><label htmlFor="admin-current-password" className="text-sm font-medium">Current password</label><Input id="admin-current-password" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></div>
-            <div className="space-y-2"><label htmlFor="admin-new-password" className="text-sm font-medium">New password</label><Input id="admin-new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" required /></div>
-            <div className="space-y-2"><label htmlFor="admin-confirm-password" className="text-sm font-medium">Confirm new password</label><Input id="admin-confirm-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" required /></div>
+            <div className="space-y-2"><label htmlFor="admin-new-password" className="text-sm font-medium">New password</label><Input id="admin-new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" minLength={15} maxLength={128} required aria-describedby="admin-password-policy" /></div>
+            <p id="admin-password-policy" className="text-xs leading-5 text-muted-foreground">Use 15–128 characters.</p>
+            <div className="space-y-2"><label htmlFor="admin-confirm-password" className="text-sm font-medium">Confirm new password</label><Input id="admin-confirm-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={15} maxLength={128} required /></div>
             {passwordError && <p className="text-sm text-destructive" role="alert">{passwordError}</p>}
             {passwordMessage && <p className="text-sm text-emerald-700" role="status">{passwordMessage}</p>}
             <DialogFooter><Button type="button" variant="outline" onClick={() => setPasswordOpen(false)} disabled={passwordSaving}>Cancel</Button><Button type="submit" disabled={passwordSaving}>{passwordSaving && <Loader2 className="animate-spin" />}Change password</Button></DialogFooter>
