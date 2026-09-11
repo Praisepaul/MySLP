@@ -25,8 +25,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Please enter your current password and a new password." }, { status: 400 });
     }
 
-    if (!body.newPassword) {
-      return NextResponse.json({ error: "Please enter a new password." }, { status: 400 });
+    if (body.newPassword.length < 15 || body.newPassword.length > 128) {
+      return NextResponse.json({ error: "Your new password must be between 15 and 128 characters." }, { status: 400 });
     }
 
     if (body.currentPassword === body.newPassword) {
