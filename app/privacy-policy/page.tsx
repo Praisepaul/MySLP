@@ -3,6 +3,8 @@ export const metadata = {
   description: "How Ephatha collects, uses, stores, protects, and shares personal information.",
 };
 
+const privacyEmail = "gracepaulaslp@gmail.com";
+
 export default function PrivacyPolicyPage() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
@@ -11,15 +13,15 @@ export default function PrivacyPolicyPage() {
         <h1>Privacy Policy</h1>
         <p className="lead">Effective date: September 11, 2026</p>
         <p>
-          Ephatha ("Ephatha", "we", "us", or "our") respects your privacy and is committed to handling personal information responsibly. This Privacy Policy explains how information is collected, used, stored, protected, and disclosed when you use the Ephatha website, online booking service, appointment-management features, and related services (collectively, the "Service").
+          Ephatha ("Ephatha", "we", "us", or "our") is operated by the individual legal service provider identified by the account owner. This Privacy Policy explains how personal information is collected, used, stored, protected, and disclosed when you use the Ephatha website, online booking service, appointment-management features, and related services (collectively, the "Service").
         </p>
         <p>
-          This policy is written for clients and visitors internationally, including people who may be protected by privacy laws such as the EU General Data Protection Regulation (GDPR) or the UK GDPR. The rights and obligations that apply to you depend on your location and the law that applies to the processing.
+          This policy is intended to provide clear international privacy information, including for individuals who may be protected by the GDPR, UK GDPR, Canadian privacy laws, Australian privacy laws, United States state privacy laws, or other applicable privacy legislation. The rights and obligations that apply to you depend on your location and the law that applies to the processing.
         </p>
 
         <h2>1. Who is responsible for your information</h2>
         <p>
-          Ephatha is the operator responsible for the Service and for the personal information described in this policy. For privacy questions, requests, or concerns, please use the Contact page provided on the website. If you are an EU/EEA or UK individual, this is also the contact route for exercising applicable data-protection rights.
+          The individual legal service provider operating Ephatha is responsible for the personal information processed through the Service. For privacy questions, requests, or concerns, contact <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>. This address is also the privacy contact for applicable data-protection rights requests.
         </p>
 
         <h2>2. Information we collect</h2>
@@ -118,10 +120,10 @@ export default function PrivacyPolicyPage() {
 
         <h2>9. Your privacy rights</h2>
         <p>
-          Depending on where you live, you may have rights including access to your personal information, correction of inaccurate information, deletion, restriction of processing, objection to certain processing, data portability, and withdrawal of consent. You may also have the right to complain to your local data-protection authority.
+          Depending on where you live, you may have rights including access to your personal information, correction of inaccurate information, deletion, restriction of processing, objection to certain processing, data portability, and withdrawal of consent. You may also have the right to complain to your local data-protection authority or other privacy regulator.
         </p>
         <p>
-          To make a request, use the Contact page and identify the information or appointment concerned. We may need to verify the requester's identity or authority before disclosing or deleting information. We will respond within the period required by applicable law.
+          To make a request, email <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a> and identify the information or appointment concerned. We may need to verify the requester's identity or authority before disclosing or deleting information. We will respond within the period required by applicable law.
         </p>
 
         <h2>10. Children and minors</h2>
@@ -146,7 +148,7 @@ export default function PrivacyPolicyPage() {
 
         <h2>14. Contact</h2>
         <p>
-          For privacy questions, data-rights requests, or concerns about this policy, please use the Ephatha Contact page. Please do not send passwords, payment-card details, or unnecessary medical information through a general contact form.
+          For privacy questions, data-rights requests, or concerns about this policy, email <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>. Please do not send passwords, payment-card details, or unnecessary medical information through a general contact channel.
         </p>
       </article>
     </main>
