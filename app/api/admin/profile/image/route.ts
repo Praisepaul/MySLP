@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     if (!allowedTypes.has(file.type)) return NextResponse.json({ error: "Please upload a JPG, PNG, WebP or GIF image." }, { status: 400 });
     if (file.size === 0 || file.size > maxBytes) return NextResponse.json({ error: "Please choose an image smaller than 5 MB." }, { status: 400 });
     const bucket = await getBucket(); await deleteFiles(draftFileName);
-    const upload = bucket.openUploadStream(draftFileName, { contentType: file.type, metadata: { purpose: "therapist-profile-image-draft" } });
+    const upload = bucket.openUploadStream(draftFileName, { metadata: { contentType: file.type, purpose: "therapist-profile-image-draft" } });
     await new Promise<void>((resolve, reject) => { upload.once("finish", () => resolve()); upload.once("error", reject); void file.arrayBuffer().then((buffer) => upload.end(Buffer.from(buffer))).catch(reject); });
     const profile = await getTherapistProfileDraft(); const saved = await saveTherapistProfileDraft({ ...profile, profileImage: "/api/profile/image?draft=1" });
     return NextResponse.json({ profile: saved, imageUrl: saved.profileImage });
