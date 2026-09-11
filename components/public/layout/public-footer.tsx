@@ -36,7 +36,7 @@ export function PublicFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="hover:text-foreground">
+                <Link href="#contact" className="hover:text-foreground">
                   Contact
                 </Link>
               </li>
