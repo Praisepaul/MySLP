@@ -18,6 +18,7 @@ export type AvailabilityRule = {
 
 export type AvailabilityExceptionType =
   | "unavailable"
+  | "unavailable-hours"
   | "custom-hours";
 
 export type AvailabilityException = {
@@ -131,12 +132,7 @@ function isValidTime(time: string) {
 
   const [hours, minutes] = time.split(":").map(Number);
 
-  return (
-    hours >= 0 &&
-    hours <= 23 &&
-    minutes >= 0 &&
-    minutes <= 59
-  );
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
 }
 
 function isValidTimezone(timezone: string) {
@@ -186,6 +182,7 @@ export function isAvailabilityException(
 ): boolean {
   return (
     exception.type === "unavailable" ||
+    exception.type === "unavailable-hours" ||
     exception.type === "custom-hours"
   );
 }
@@ -200,7 +197,8 @@ export function isPartialDayException(
   exception: AvailabilityException,
 ): boolean {
   return (
-    exception.type === "custom-hours" &&
+    (exception.type === "unavailable-hours" ||
+      exception.type === "custom-hours") &&
     Boolean(exception.startTime && exception.endTime)
   );
 }
@@ -211,9 +209,7 @@ function isValidDateString(date: string) {
   }
 
   const [year, month, day] = date.split("-").map(Number);
-  const parsedDate = new Date(
-    Date.UTC(year, month - 1, day),
-  );
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
 
   return (
     parsedDate.getUTCFullYear() === year &&
@@ -237,15 +233,15 @@ export function validateAvailabilityException(
     return "Invalid availability exception type.";
   }
 
-  if (exception.type === "custom-hours") {
+  if (
+    exception.type === "unavailable-hours" ||
+    exception.type === "custom-hours"
+  ) {
     if (!exception.startTime || !exception.endTime) {
-      return "Custom-hours exceptions require both a start time and an end time.";
+      return "An hours-based exception requires both a start time and an end time.";
     }
 
-    if (
-      !isValidTime(exception.startTime) ||
-      !isValidTime(exception.endTime)
-    ) {
+    if (!isValidTime(exception.startTime) || !isValidTime(exception.endTime)) {
       return "Exception times must use a valid HH:MM format.";
     }
 
