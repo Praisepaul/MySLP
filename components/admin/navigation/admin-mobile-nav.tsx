@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminNavigation } from "@/lib/config/admin-navigation";
@@ -11,12 +12,30 @@ interface AdminMobileNavProps {
 }
 
 export function AdminMobileNav({ open, onClose }: AdminMobileNavProps) {
-  if (!open) {
-    return null;
-  }
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 lg:hidden">
+    <div className="fixed inset-0 z-50 lg:hidden" role="presentation">
       <button
         type="button"
         className="absolute inset-0 bg-black/40"
@@ -24,7 +43,12 @@ export function AdminMobileNav({ open, onClose }: AdminMobileNavProps) {
         onClick={onClose}
       />
 
-      <aside className="relative flex h-full w-[min(20rem,85vw)] flex-col border-r bg-background shadow-xl">
+      <aside
+        className="relative flex h-full w-[min(20rem,85vw)] flex-col border-r bg-background shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Admin navigation"
+      >
         <div className="flex h-16 items-center justify-between border-b px-5">
           <Link
             href="/admin"
@@ -44,9 +68,11 @@ export function AdminMobileNav({ open, onClose }: AdminMobileNavProps) {
           </Link>
 
           <Button
+            ref={closeButtonRef}
             type="button"
             variant="ghost"
             size="icon"
+            className="size-11"
             onClick={onClose}
             aria-label="Close admin navigation"
           >
@@ -74,7 +100,7 @@ export function AdminMobileNav({ open, onClose }: AdminMobileNavProps) {
                         <Link
                           href={item.href}
                           onClick={onClose}
-                          className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
                         >
                           <Icon
                             aria-hidden="true"
