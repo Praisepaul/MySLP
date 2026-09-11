@@ -69,13 +69,6 @@ function getSessionSecret(): string {
   return secret;
 }
 
-export async function isAdminAuthConfigured(): Promise<boolean> {
-  if (!process.env.GRACE_ADMIN_SESSION_SECRET || process.env.GRACE_ADMIN_SESSION_SECRET.length < 32 || !adminUsername) return false;
-  if (process.env.GRACE_ADMIN_PASSWORD_HASH?.trim()) return true;
-  const stored = await getStoredCredentials();
-  return Boolean(stored?.passwordHash);
-}
-
 function credentialVersion(passwordHash: string): string {
   return createHash("sha256").update(passwordHash).digest("base64url").slice(0, 22);
 }
@@ -92,7 +85,7 @@ async function createSessionValue(username: string): Promise<string> {
   return `${payload}.${signSessionPayload(payload)}`;
 }
 
-async function setAdminSession(): Promise<void> {
+export async function establishAdminSession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(adminSessionCookieName, await createSessionValue(adminUsername), {
     httpOnly: true,
@@ -188,7 +181,7 @@ export async function changeAdminPassword(currentPassword: string, newPassword: 
     { upsert: true },
   );
 
-  await setAdminSession();
+  await establishAdminSession();
   return true;
 }
 
@@ -258,6 +251,13 @@ async function clearFailedLogins(key: string): Promise<void> {
   }
 }
 
+export async function isAdminAuthConfigured(): Promise<boolean> {
+  if (!process.env.GRACE_ADMIN_SESSION_SECRET || process.env.GRACE_ADMIN_SESSION_SECRET.length < 32 || !adminUsername) return false;
+  if (process.env.GRACE_ADMIN_PASSWORD_HASH?.trim()) return true;
+  const stored = await getStoredCredentials();
+  return Boolean(stored?.passwordHash);
+}
+
 export async function isAdminAuthenticated(): Promise<boolean> {
   if (!(await isAdminAuthConfigured())) return false;
   try {
@@ -284,7 +284,7 @@ export async function loginAdmin(username: string, password: string, request: Re
   if (!valid) return (await recordFailedLogin(key)) ? "rate_limited" : "invalid";
 
   await clearFailedLogins(key);
-  await setAdminSession();
+  await establishAdminSession();
   return "success";
 }
 
