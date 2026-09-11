@@ -6,5 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   await logoutAdmin();
-  return NextResponse.redirect(new URL("/admin-login", request.url), 303);
+  const response = NextResponse.redirect(new URL("/admin-login", request.url), 303);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }
