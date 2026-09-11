@@ -55,7 +55,7 @@ test("booking buffers participate in conflict detection", () => {
       source: "appointment" as const,
     },
     {
-      start: new Date("2026-09-14T11:15:00Z"),
+      start: new Date("2026-09-14T11:10:00Z"),
       end: new Date("2026-09-14T12:00:00Z"),
       source: "calendar" as const,
     },
