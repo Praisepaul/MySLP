@@ -290,5 +290,14 @@ export async function loginAdmin(username: string, password: string, request: Re
 
 export async function logoutAdmin(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(adminSessionCookieName);
+  // Explicitly expire the host-only session cookie instead of relying only on delete().
+  // This keeps the exact hardened cookie attributes while forcing a browser-side expiry.
+  cookieStore.set(adminSessionCookieName, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: true,
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0),
+  });
 }
