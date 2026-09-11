@@ -24,8 +24,6 @@ test("all sensitive admin API routes retain server-side session enforcement", as
     "app/api/admin/profile/image/route.ts",
     "app/api/admin/services/route.ts",
     "app/api/admin/auth/password/route.ts",
-    "app/api/admin/auth/passkey/register/options/route.ts",
-    "app/api/admin/auth/passkey/register/verify/route.ts",
     "app/api/admin/auth/passkey/status/route.ts",
   ];
 
@@ -33,6 +31,9 @@ test("all sensitive admin API routes retain server-side session enforcement", as
   for (const [index, content] of contents.entries()) {
     assert.match(content, /requireAdminSession/, `Missing admin session enforcement in ${routes[index]}`);
   }
+
+  const passkeys = await source("lib/admin/passkeys.ts");
+  assert.match(passkeys, /requireAdminSession/);
 });
 
 test("bearer-token appointment endpoints remain explicitly non-cacheable", async () => {
@@ -55,10 +56,11 @@ test("production WebAuthn remains fail-closed and uses the pinned origin/RP conf
 
 test("Google refresh tokens remain encrypted before persistence", async () => {
   const cryptoSource = await source("lib/calendar/google-calendar-crypto.ts");
-  const repository = await source("lib/calendar/google-calendar-repository.ts");
+  const service = await source("lib/calendar/google-calendar-service.ts");
 
   assert.match(cryptoSource, /aes-256-gcm/);
-  assert.match(repository, /encryptGoogleRefreshToken/);
+  assert.match(cryptoSource, /encryptGoogleRefreshToken/);
+  assert.match(service, /encryptGoogleRefreshToken/);
 });
 
 test("security headers remain configured in Next.js", async () => {
