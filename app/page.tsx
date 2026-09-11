@@ -1,4 +1,4 @@
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, Mail, MessageCircle, Phone } from "lucide-react";
 import Link from "next/link";
 import { ProfileAbout } from "@/components/public/profile/profile-about";
 import { ProfileContent } from "@/components/public/profile/profile-content";
@@ -48,23 +48,47 @@ export default async function Home() {
               <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
                 If you have a question before booking, need help with an
                 appointment, or would like to know more about the services,
-                you can reach Ephatha by email.
+                you can reach Ephatha by email, phone, or WhatsApp.
               </p>
-              <a
-                href="mailto:gracepaulaslp@gmail.com"
-                className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                Email Ephatha
-                <Mail aria-hidden="true" className="size-4" />
-              </a>
-              <p className="mt-4 text-sm text-muted-foreground">
+              <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
+                <a
+                  href="mailto:gracepaulaslp@gmail.com"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                >
+                  <Mail aria-hidden="true" className="size-4" />
+                  Email Ephatha
+                </a>
+                <a
+                  href="tel:+917019823700"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border bg-background px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                >
+                  <Phone aria-hidden="true" className="size-4" />
+                  Call +91 70198 23700
+                </a>
+                <a
+                  href="https://wa.me/917019823700"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border bg-background px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                >
+                  <MessageCircle aria-hidden="true" className="size-4" />
+                  WhatsApp
+                </a>
+              </div>
+              <div className="mt-5 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-x-6">
                 <a
                   href="mailto:gracepaulaslp@gmail.com"
                   className="underline underline-offset-4 hover:text-foreground"
                 >
                   gracepaulaslp@gmail.com
                 </a>
-              </p>
+                <a
+                  href="tel:+917019823700"
+                  className="underline underline-offset-4 hover:text-foreground"
+                >
+                  +91 70198 23700
+                </a>
+              </div>
             </div>
           </div>
         </section>
