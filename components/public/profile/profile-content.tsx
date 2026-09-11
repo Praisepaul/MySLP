@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowUpRight, Quote } from "lucide-react";
 import type { EditableTherapistProfile } from "@/lib/cms/site-settings-repository";
 
@@ -10,23 +11,44 @@ function TestimonialCard({
   name?: string;
   context?: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const isLong = quote.trim().split(/\s+/).length > 42 || quote.length > 280;
 
   return (
-    <article className="flex h-[320px] w-[min(34rem,88vw)] shrink-0 snap-start flex-col rounded-3xl border bg-card p-7 shadow-sm sm:h-[330px] sm:p-8">
-      <Quote className="size-6 shrink-0" aria-hidden="true" />
-      <div className="mt-5 min-h-0 flex-1 overflow-y-auto pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <blockquote className="text-base leading-7 sm:text-lg">
+    <article className="flex h-[230px] w-[min(27rem,82vw)] shrink-0 snap-start flex-col rounded-3xl border bg-card p-5 shadow-sm sm:h-[240px] sm:p-6">
+      <Quote className="size-5 shrink-0" aria-hidden="true" />
+      <div
+        className={`relative mt-4 min-h-0 flex-1 pr-1 ${
+          expanded ? "overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "overflow-hidden"
+        }`}
+      >
+        <blockquote className="text-base leading-6 sm:text-[17px] sm:leading-7">
           “{quote}”
         </blockquote>
-        {isLong && (
-          <p className="mt-3 text-xs font-medium text-muted-foreground">
-            Read more by scrolling
-          </p>
+        {isLong && !expanded && (
+          <div className="absolute bottom-0 right-0 left-0 flex justify-end bg-gradient-to-r from-transparent via-card/95 to-card pt-5">
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="rounded-md bg-card pl-2 text-sm font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground"
+              aria-label="Read the full testimonial"
+            >
+              Read more
+            </button>
+          </div>
+        )}
+        {isLong && expanded && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="mt-2 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Read less
+          </button>
         )}
       </div>
       {(name || context) && (
-        <p className="mt-5 shrink-0 text-sm text-muted-foreground">
+        <p className="mt-4 shrink-0 text-sm text-muted-foreground">
           {[name, context].filter(Boolean).join(" · ")}
         </p>
       )}
@@ -51,7 +73,7 @@ export function ProfileContent({ therapistProfile }: { therapistProfile: Editabl
               </h2>
             </div>
             <div className="mt-8 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="flex min-w-full gap-5 pb-1">
+              <div className="flex min-w-full gap-4 pb-1">
                 {testimonials.map((item, index) => (
                   <TestimonialCard
                     key={`${item.quote}-${index}`}
