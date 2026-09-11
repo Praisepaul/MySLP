@@ -3,6 +3,8 @@ export const metadata = {
   description: "Terms governing use of the Ephatha website, booking service, and appointments.",
 };
 
+const legalEmail = "gracepaulaslp@gmail.com";
+
 export default function TermsPage() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
@@ -16,7 +18,7 @@ export default function TermsPage() {
 
         <h2>1. About Ephatha</h2>
         <p>
-          Ephatha provides professional speech and language services and related appointment scheduling. The Service allows visitors to review available services and appointment times and, where enabled, book, reschedule, or cancel appointments.
+          Ephatha is operated by an individual professional service provider and provides professional speech and language services and related appointment scheduling. The Service allows visitors to review available services and appointment times and, where enabled, book, reschedule, or cancel appointments.
         </p>
 
         <h2>2. Eligibility and authority</h2>
@@ -49,7 +51,10 @@ export default function TermsPage() {
 
         <h2>7. Professional and cross-border considerations</h2>
         <p>
-          Professional licensing, scope-of-practice, telehealth, and healthcare rules can depend on the location of the client and the professional at the time services are delivered. Ephatha will determine whether a requested service can be provided in a particular circumstance. Booking an appointment does not by itself guarantee that a professional service can lawfully be delivered in every jurisdiction.
+          Professional licensing, scope-of-practice, telehealth, healthcare, consumer-protection, and privacy rules can depend on the location of the client and the professional at the time services are delivered. Ephatha will determine whether a requested service can be provided in a particular circumstance. Booking an appointment does not by itself guarantee that a professional service can lawfully be delivered in every jurisdiction.
+        </p>
+        <p>
+          Clients in India, the United States, the European Economic Area, the United Kingdom, Canada, Ireland, Australia, and elsewhere may have mandatory legal protections that cannot be waived by these Terms. Nothing in these Terms is intended to exclude those protections.
         </p>
 
         <h2>8. Information you provide</h2>
@@ -85,7 +90,7 @@ export default function TermsPage() {
 
         <h2>13. Privacy</h2>
         <p>
-          Your use of the Service is also governed by the Ephatha Privacy Policy, which explains how personal information is handled. The Privacy Policy forms part of these Terms for information-handling purposes.
+          Your use of the Service is also governed by the Ephatha Privacy Policy and Cookie Policy, which explain how personal information and cookies are handled. Those policies form part of these Terms for information-handling purposes.
         </p>
 
         <h2>14. Service availability</h2>
@@ -115,12 +120,12 @@ export default function TermsPage() {
 
         <h2>19. Governing law and disputes</h2>
         <p>
-          The governing law and dispute-resolution forum applicable to a client may depend on the location of the parties, the professional service being provided, and mandatory consumer or healthcare laws. Nothing in these Terms is intended to remove a legal right that cannot be waived in your jurisdiction. Where a specific service agreement or applicable law provides a different dispute process, that process will take precedence.
+          Ephatha is operated from India, and Indian law will generally govern the relationship to the extent legally permitted. However, this clause does not override mandatory consumer-protection, healthcare, privacy, telehealth, or other laws that apply to a client based on their location or the location where professional services are delivered. Nothing in these Terms prevents a consumer from exercising a mandatory right to bring a claim before a court or regulator that has jurisdiction under applicable law.
         </p>
 
         <h2>20. Contact</h2>
         <p>
-          Questions about these Terms should be sent through the Ephatha Contact page.
+          Questions about these Terms should be sent to <a href={`mailto:${legalEmail}`}>{legalEmail}</a>.
         </p>
       </article>
     </main>
