@@ -43,6 +43,7 @@ CMS
   lib/cms/site-settings-repository.ts
   lib/cms/services-repository.ts
   lib/cms/availability-repository.ts
+  components/admin/profile/profile-form.tsx — profile editor + live public-profile preview
   MongoDB: site_settings
   MongoDB: cms_services
   MongoDB: cms_availability
@@ -136,7 +137,7 @@ Admin scheduling reuses `createAppointment()` / `rescheduleAppointment()`, the e
 The temporary setup access gate remains in place. True admin authentication belongs to Phase 16.
 
 ## Phase 12 — Profile CMS
-**Implemented initial persisted CMS + UI polish.** Mongo document: `site_settings`, `_id = therapist-profile`. Profile timezone now uses the shared searchable IANA timezone control. Profile image is currently an external direct-image URL; the public hero safely falls back if the supplied URL is not a loadable image.
+**Complete.** Mongo document: `site_settings`, `_id = therapist-profile`. The admin editor persists therapist identity, professional information, bios, credentials, languages, practice location, timezone, session types, contact details and social links. It now includes character guidance, direct-image URL guidance, a live public-profile preview, and a one-click link to open the public profile. Profile timezone uses the shared searchable IANA timezone control. Profile image remains an external direct-image URL for now; the public hero safely falls back if the supplied URL is not a loadable image. No storage-provider dependency was introduced.
 
 ## Phase 13 — Booking settings CMS
 **Implemented initial persisted CMS + runtime enforcement.** Mongo document: `site_settings`, `_id = booking-settings`.
