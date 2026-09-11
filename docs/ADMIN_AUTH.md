@@ -14,15 +14,25 @@ The public therapist website and private therapist workspace are intentionally i
 
 The admin logo stays inside the private workspace and returns to `/admin`. The public site keeps its own public navigation.
 
+## Therapist account menu
+
+Clicking the therapist avatar in the admin top bar opens the private account menu. It provides:
+
+- Change profile photo
+- Change password
+- Log out
+
+The profile photo uses the existing therapist profile-image GridFS flow, so there is no second image-storage system. The uploaded photo is saved to the private profile draft and therefore follows the existing explicit profile-publish workflow for the public website.
+
 ## Credentials
 
 Set these server environment variables:
 
 - `GRACE_ADMIN_USERNAME` — defaults to `gracevpaul` when omitted.
-- `GRACE_ADMIN_PASSWORD_HASH` — generated from the password, never store the plaintext password in source control.
+- `GRACE_ADMIN_PASSWORD_HASH` — bootstrap password hash; never store the plaintext password in source control.
 - `GRACE_ADMIN_SESSION_SECRET` — long random secret, at least 32 characters.
 
-Generate a password hash locally with:
+Generate the initial password hash locally with:
 
 ```text
 npm run admin:hash-password
@@ -30,9 +40,17 @@ npm run admin:hash-password
 
 Paste the generated `GRACE_ADMIN_PASSWORD_HASH=...` value into the deployment environment, not into the repository.
 
+### Password changes
+
+After the therapist changes the password from the account menu, the new scrypt hash is stored in MongoDB in the `admin_credentials` collection under `_id: "admin"`. The MongoDB value becomes the active password hash; the environment hash remains the bootstrap/fallback credential for an installation that has not yet created the MongoDB credential record. MongoDB's `updateOne(..., { upsert: true })` pattern updates the existing credential record or creates it when needed. citeturn1search0turn1search2
+
+The current password is required before a new password can be saved. A new password must contain at least 12 characters and must differ from the current password. The password itself is never stored in MongoDB — only the scrypt hash is stored.
+
+Changing the password also changes the credential-version fingerprint used by the signed session. The current browser session is immediately re-issued against the new credential version, while older sessions become invalid.
+
 ## Sessions
 
-The therapist session is an HttpOnly, signed cookie with an 8-hour lifetime. It uses `SameSite=Lax` so the authenticated Google OAuth callback can complete safely. The session includes a credential-version fingerprint, so changing the configured password hash invalidates existing sessions after the next request.
+The therapist session is an HttpOnly, signed cookie with an 8-hour lifetime. It uses `SameSite=Lax` so the authenticated Google OAuth callback can complete safely. The session includes a credential-version fingerprint, so changing the active password hash invalidates older sessions.
 
 Logout deletes the session cookie.
 
