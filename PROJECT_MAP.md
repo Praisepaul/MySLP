@@ -13,6 +13,8 @@
 - Public availability synchronization is MongoDB-revision driven; the 3-second loop never polls Google.
 - Admin should eventually operate the whole product without source-code edits.
 - Reuse existing booking, conflict, lock, appointment and calendar services; do not create parallel scheduling logic.
+- Time display uses 24-hour `HH:mm` conventions throughout the user/admin scheduling surfaces.
+- Timezone selection uses the reusable `components/ui/timezone-select.tsx` component and the runtime IANA timezone list rather than a hardcoded application list.
 
 ## Technology
 Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoDB driver/Atlas, Google Calendar API/OAuth, Google Meet via Calendar conferenceData.
@@ -29,10 +31,13 @@ ADMIN
   /admin
   /admin/services           persistent Services CMS
   /admin/availability       persistent Availability CMS
-  /admin/calendar
+  /admin/calendar           responsive therapist schedule + Google Calendar connection
   /admin/appointments
   /admin/profile            persistent Profile CMS
   /admin/booking-settings   persistent Booking Settings CMS
+
+SHARED UI
+  components/ui/timezone-select.tsx — searchable full IANA timezone input/datalist
 
 CMS
   lib/cms/site-settings-repository.ts
@@ -63,6 +68,8 @@ CALENDAR
   lib/calendar/google-calendar-repository.ts
   lib/calendar/google-calendar-service.ts
   lib/calendar/google-calendar-event-service.ts
+  app/api/admin/calendar/route.ts
+  components/admin/calendar/admin-calendar.tsx
 
 MONGO COLLECTIONS
   appointments
@@ -91,70 +98,28 @@ MONGO COLLECTIONS
 ## Phase 3 — Services CMS
 **Implemented persisted CMS.**
 
-Files:
-- `lib/cms/services-repository.ts`
-- `app/api/admin/services/route.ts`
-- `components/admin/services/services-manager.tsx`
-- `components/admin/services/services-manager-v2.tsx`
-- `components/admin/services/services-list.tsx`
-- `components/admin/services/service-form.tsx`
-- `app/admin/services/page.tsx`
-- `components/public/profile/profile-services-preview.tsx`
-- `components/public/booking/booking-flow.tsx`
-- `app/book/page.tsx`
-- `app/appointment/[confirmationToken]/reschedule/page.tsx`
-- `lib/appointments/appointment-service.ts`
-
-Mongo collection: `cms_services`.
-
-`getServices()` uses the existing config as a one-time-safe fallback when Mongo has no records. `upsertService`, `setServiceActive`, `disableService` and `deleteService` persist changes. Service disabling is soft-disable; existing appointment snapshots are not rewritten. New service IDs are generated internally from the service name; therapists do not need to enter an ID.
-
-Public service preview, booking selection, booking creation, and rescheduling now consume the persisted service repository rather than the static service array. Server-to-client service props are explicitly serialized so Mongo `_id` values never cross the Client Component boundary.
-
 ## Phase 4 — Availability management
-**Implemented persisted CMS with therapist-focused bulk workflow and calendar view.**
+**Implemented persisted CMS with therapist-focused bulk workflow and calendar view.** The recurring day selector now uses compact Sun–Sat circular controls: selected is black/white and unselected is white/black. Availability timezone uses the shared searchable IANA timezone control. Existing approved button placement is preserved.
 
-Files:
-- `lib/cms/availability-repository.ts`
-- `app/api/admin/availability/route.ts`
-- `components/admin/availability/availability-manager.tsx`
-- `components/admin/availability/availability-manager-v2.tsx`
-- `components/admin/availability/availability-quick-tools.tsx`
-- `components/admin/availability/availability-exception-form.tsx`
-- `components/admin/availability/availability-rules-list.tsx`
-- `components/admin/availability/availability-rules-list-v2.tsx`
-- `components/admin/availability/availability-rule-form.tsx`
-- `components/admin/availability/availability-exceptions-list.tsx`
-- `components/admin/availability/availability-exceptions-list-v2.tsx`
-- `app/admin/availability/page.tsx`
-- `lib/booking/public-availability-service.ts`
-- `lib/appointments/appointment-service.ts`
-
-Mongo collection: `cms_availability`.
-
-Weekly rules and date-specific exceptions are persisted as one authoritative configuration document. Existing validation functions from `lib/config/availability.ts` remain the validation boundary. Saving configuration bumps the existing public availability revision.
-
-The recurring layer remains day-of-week based, while date-specific changes provide the calendar-date layer. Weekly availability can be added/edited for multiple weekdays sharing the same hours, with Edit, Enable/Disable and Delete actions. The quick-tools workflow adds bulk leave/holiday blocking, date-range custom hours, and copying the active weekly schedule into a selected date range as date-specific hours. The visual monthly calendar shows recurring hours and date-specific overrides and lets the therapist select dates for bulk leave.
-
-Bulk operations expand into the existing `AvailabilityException` storage shape rather than changing the booking engine contract. Date-range operations intentionally replace existing date-specific changes for affected dates so the requested schedule is unambiguous. Existing booking, conflict and lock logic remains authoritative.
+Files include `components/admin/availability/availability-manager-v2.tsx` and the existing quick-tools/list/form files. No new versioned availability filenames should be introduced going forward.
 
 ## Phase 5 — Booking engine
 **Complete.** Existing slot/conflict logic remains authoritative. `getBookableSlotsWithConfiguration()` is the reusable runtime configuration boundary; `getBookableSlots()` remains for compatibility/defaults.
 
 ## Phase 6 — Patient booking experience
-**Complete.** Service → timezone → date/time → details → review → appointment creation.
+**Complete + UI polish.** Service → searchable timezone → date/time → details → review → appointment creation. Booking slot, summary, confirmation, management and reschedule displays now use 24-hour times.
 
 ## Phase 7 — Appointment persistence/management
-**Complete and previously locally validated.** `createAppointment`, `rescheduleAppointment`, `cancelAppointment`, idempotency and transactional booking locks are established.
+**Complete.** `createAppointment`, `rescheduleAppointment`, `cancelAppointment`, idempotency and transactional booking locks are established. Admin appointment displays now use 24-hour time.
 
 ## Phase 8 — Patient calendar support
-**Complete and previously locally validated.** Google Calendar, Outlook, Apple/ICS support.
+**Complete.** Google Calendar, Outlook, Apple/ICS support.
 
 ## Phase 9 — Therapist Google Calendar
-**Complete and previously validated.** OAuth, encrypted refresh tokens, FreeBusy, cached busy data, manual sync, disconnect and fail-closed final validation.
+**Complete.** OAuth, encrypted refresh tokens, FreeBusy, cached busy data, manual sync, disconnect and fail-closed final validation.
 
 ## Phase 9.1 — Public availability realtime
-**Complete and previously validated.** Mongo-only revision checking every ~3 seconds while visible; Google is not polled by the browser loop.
+**Complete.** Mongo-only revision checking every ~3 seconds while visible; Google is not polled by the browser loop.
 
 ## Phase 9.2 — External conflict learning
 **Complete.** Final Google conflicts can be persisted to `google_calendar_discovered_conflicts` and bump public availability revision.
@@ -162,13 +127,13 @@ Bulk operations expand into the existing `AvailabilityException` storage shape r
 ## Phase 10 — Google Calendar events + Meet
 **Complete and end-to-end validated.** Deterministic event projection, update/delete, Google Meet, attendee notifications and public rescheduling are implemented.
 
-## Phase 11 — Admin appointment management
-**Active.** Implemented list/search/status/date filters, details in list, Meet, Calendar sync state, completed/no-show/cancel, realtime revision sync and manual Refresh. Admin API already supports reschedule through existing `rescheduleAppointment`.
+## Phase 11 — Admin appointment management + therapist calendar
+**Active.** Implemented list/search/status/date filters, details in list, Meet, Calendar sync state, completed/no-show/cancel, realtime revision sync and manual Refresh. The `/admin/calendar` tab now includes a responsive week timeline on laptop/desktop and a chronological day-grouped schedule on smaller screens. It combines Grace Sessions appointments with Google Calendar events and uses a selected-week fetch rather than continuous Google polling. `getGoogleCalendarEvents()` exposes event details while the existing cached busy/free architecture remains intact.
 
-Remaining: day/week visual calendar, dedicated detail view, native availability-picker rescheduling UI, manual admin creation UI, richer operational controls/retry and real admin authentication.
+Remaining: richer operational controls/retry, native admin availability-picker rescheduling UI, manual admin creation UI, true admin authentication, and further calendar polish such as deeper availability-window visualization.
 
 ## Phase 12 — Profile CMS
-**Implemented initial persisted CMS.** Mongo document: `site_settings`, `_id = therapist-profile`. Profile image is currently an external direct-image URL; the public hero safely falls back if the supplied URL is not a loadable image instead of crashing the page.
+**Implemented initial persisted CMS + UI polish.** Mongo document: `site_settings`, `_id = therapist-profile`. Profile timezone now uses the shared searchable IANA timezone control. Profile image is currently an external direct-image URL; the public hero safely falls back if the supplied URL is not a loadable image.
 
 ## Phase 13 — Booking settings CMS
 **Implemented initial persisted CMS + runtime enforcement.** Mongo document: `site_settings`, `_id = booking-settings`.
@@ -206,4 +171,5 @@ Remaining: day/week visual calendar, dedicated detail view, native availability-
 9. Never poll Google Calendar from the public revision loop.
 10. CMS writes affecting availability bump the existing `availability_revisions` singleton.
 11. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
-12. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
+12. Do not create `-v2`, `-v3`, `-new` or similar versioned filenames for replacement UI implementations; preserve the canonical file architecture.
+13. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
