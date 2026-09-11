@@ -4,14 +4,14 @@ import { cookies } from "next/headers";
 const stateCookieName = "grace_google_calendar_oauth_state";
 const stateMaxAgeSeconds = 10 * 60;
 
-function getSetupSecret(): string {
-  const secret = process.env.GOOGLE_CALENDAR_SETUP_SECRET;
-  if (!secret) throw new Error("GOOGLE_CALENDAR_SETUP_SECRET is not configured.");
+function getOAuthStateSecret(): string {
+  const secret = process.env.GOOGLE_CALENDAR_OAUTH_STATE_SECRET;
+  if (!secret) throw new Error("GOOGLE_CALENDAR_OAUTH_STATE_SECRET is not configured.");
   return secret;
 }
 
 function signValue(payload: string): string {
-  return createHmac("sha256", getSetupSecret()).update(payload).digest("base64url");
+  return createHmac("sha256", getOAuthStateSecret()).update(payload).digest("base64url");
 }
 
 function createSignedValue(value: string, issuedAt = Date.now()): string {
