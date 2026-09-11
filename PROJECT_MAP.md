@@ -18,6 +18,8 @@
 - Profile CMS fields are optional: the therapist can save/update with any or all profile content blank.
 - Public profile presentation is scaffold-driven: CMS content automatically appears in appropriate sections/cards/tags, and empty sections are hidden. The therapist does not need to design page layouts.
 - Profile drafts are private and never used by the public homepage. Only explicit publish promotes the draft to the public profile.
+- The web app is English-only; no internationalization phase is required.
+- Patient notifications are intentionally handled by Google Calendar/Google Meet; no separate notification provider is required.
 
 ## Technology
 Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoDB driver/Atlas, Google Calendar API/OAuth, Google Meet via Calendar conferenceData.
@@ -50,6 +52,8 @@ CMS
     getTherapistProfileDraft() — private admin draft
     saveTherapistProfileDraft() — autosaved draft persistence
     publishTherapistProfile() — explicit draft-to-public promotion
+    getBookingSettings() — persisted booking rules with defaults for older installs
+    saveBookingSettings() — validates and persists booking rules
   lib/cms/services-repository.ts
   lib/cms/availability-repository.ts
   components/admin/profile/profile-form.tsx — autosaved draft editor + review/publish preview
@@ -61,12 +65,13 @@ CMS
   app/api/admin/profile/image/route.ts — authenticated draft GridFS profile photo upload/removal
   app/api/profile/image/route.ts — public published image + authenticated draft image preview
   app/admin/profile/preview/page.tsx — authenticated full draft website preview
-  MongoDB: site_settings (`therapist-profile` published, `therapist-profile-draft` private draft)
+  MongoDB: site_settings (`therapist-profile` published, `therapist-profile-draft` private draft, `booking-settings`)
   MongoDB: cms_services
   MongoDB: cms_availability
   MongoDB GridFS bucket: profile_media (`therapist-profile-image` published, `therapist-profile-image-draft` draft)
 
 BOOKING
+  lib/config/booking-settings.ts — defaults and validation for booking rules
   lib/booking/slot-types.ts
   lib/booking/time-utils.ts
   lib/booking/availability-engine.ts
@@ -75,10 +80,24 @@ BOOKING
   lib/booking/booking-engine.ts
   lib/booking/public-availability-service.ts
 
+  Booking rules:
+    - Accept online bookings
+    - Minimum notice before a new booking
+    - Maximum booking window
+    - Appointment start-time interval
+    - Time needed before a session
+    - Time needed after a session
+    - Allow patients to cancel online
+    - Cancellation deadline
+    - Allow patients to reschedule online
+    - Rescheduling deadline
+    - Patient-facing cancellation/rescheduling policy text
+    - Patient-facing booking instructions
+
 APPOINTMENTS
   lib/appointments/appointment-types.ts
   lib/appointments/appointment-repository.ts
-  lib/appointments/appointment-service.ts
+  lib/appointments/appointment-service.ts — new booking and admin scheduling use the persisted booking configuration; public rescheduling can enforce patient policy deadlines
   components/admin/appointments/admin-appointment-scheduling.tsx — shared admin create/reschedule availability picker
 
 CALENDAR
@@ -165,13 +184,13 @@ List-style profile content uses reusable tag inputs: Enter or comma adds an item
 Profile photo changes are draft-safe too. Draft uploads use `therapist-profile-image-draft`; publishing promotes the draft image to the public `therapist-profile-image`. Direct external image URLs remain compatible. No third-party storage dependency is required.
 
 ## Phase 13 — Booking settings CMS
-**Implemented initial persisted CMS + runtime enforcement.** Mongo document: `site_settings`, `_id = booking-settings`.
+**Complete.** Booking rules are persisted in `site_settings` under `_id = booking-settings`, with the existing safe defaults preserved for older installations. The admin form now has short therapist-friendly ⓘ help controls beside every rule, each giving a plain-language meaning and a concrete example. Runtime slot generation already consumes the persisted settings; patient cancellation and rescheduling now enforce their saved online policy and deadlines server-side. Admin-created and admin-rescheduled appointments remain therapist-controlled and are not blocked by patient self-service deadlines.
 
 ## Phase 14 — Internationalization
-**Planned.** English, Portuguese, Hindi across all user-facing surfaces with timezone-aware date/time formatting.
+**Removed.** The product is intentionally English-only.
 
 ## Phase 15 — Notifications
-**Planned.** Custom provider-independent transactional notifications/reminders only where Google Calendar notifications are insufficient.
+**Removed.** Google Calendar and Google Meet notifications serve the product's current purpose; no separate notification provider is planned.
 
 ## Phase 16 — Security/privacy
 **Planned.** Replace temporary setup auth, harden tokens/rate limits, validation, secrets, privacy, abuse protection and error redaction.
@@ -206,4 +225,6 @@ Profile photo changes are draft-safe too. Draft uploads use `therapist-profile-i
 15. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
 16. Do not create `-v2`, `-v3`, `-new` or similar versioned filenames for replacement UI implementations; preserve the canonical file architecture.
 17. Profile photos use MongoDB GridFS (`profile_media`) unless a deliberate storage-provider decision is made later.
-18. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
+18. Booking rules are stored with the existing `site_settings` CMS document and must be read at runtime rather than copied into UI-only logic.
+19. Patient cancellation/rescheduling rules are enforced server-side; admin operations remain therapist-controlled.
+20. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
