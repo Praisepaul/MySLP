@@ -4,7 +4,7 @@ import { appointmentStatuses, type AppointmentDocument, type AppointmentStatus }
 import { AppointmentBookingError, createAppointment, rescheduleAppointment } from "@/lib/appointments/appointment-service";
 import { cancelAppointment, findAdminAppointments, findAppointmentByToken, toAppointmentPublicView, updateAppointmentStatus, updateGoogleCalendarSyncStatus } from "@/lib/appointments/appointment-repository";
 import { createGoogleCalendarAppointmentEvent, deleteGoogleCalendarAppointmentEvent, updateGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
-import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
+import { requireAdminSession } from "@/lib/admin/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,12 +19,12 @@ function serialize(appointment: AppointmentDocument) {
 }
 
 function unauthorized(error: unknown) {
-  return error instanceof Error && error.message === "Google Calendar setup access is required.";
+  return error instanceof Error && error.message === "Admin authentication is required.";
 }
 
 export async function GET(request: Request) {
   try {
-    await requireGoogleCalendarSetupAccess();
+    await requireAdminSession();
     const url = new URL(request.url);
     const rawStatus = url.searchParams.get("status") ?? undefined;
     const status = rawStatus && appointmentStatuses.includes(rawStatus as AppointmentStatus) ? rawStatus as AppointmentStatus : undefined;
@@ -43,16 +43,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireGoogleCalendarSetupAccess();
+    await requireAdminSession();
     const body = await request.json() as { serviceId?: unknown; startAt?: unknown; timezone?: unknown; name?: unknown; email?: unknown; idempotencyKey?: unknown };
-    const appointment = await createAppointment({
-      serviceId: body.serviceId,
-      startAt: body.startAt,
-      timezone: body.timezone,
-      name: body.name,
-      email: body.email,
-      idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : randomUUID(),
-    });
+    const appointment = await createAppointment({ serviceId: body.serviceId, startAt: body.startAt, timezone: body.timezone, name: body.name, email: body.email, idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : randomUUID() });
     return NextResponse.json({ appointment: serialize(appointment) }, { status: 201 });
   } catch (error) {
     const status = unauthorized(error) ? 401 : error instanceof AppointmentBookingError ? (error.code === "INVALID_REQUEST" ? 400 : error.code === "UNAVAILABLE" ? 409 : 500) : 500;
@@ -62,7 +55,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    await requireGoogleCalendarSetupAccess();
+    await requireAdminSession();
     const body = await request.json() as { confirmationToken?: unknown; action?: unknown; startAt?: unknown; timezone?: unknown };
     if (typeof body.confirmationToken !== "string" || body.confirmationToken.length > 100) return NextResponse.json({ error: "Invalid appointment." }, { status: 400 });
 
@@ -112,7 +105,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    await requireGoogleCalendarSetupAccess();
+    await requireAdminSession();
     const body = await request.json() as { confirmationToken?: unknown };
     if (typeof body.confirmationToken !== "string" || body.confirmationToken.length > 100) return NextResponse.json({ error: "Invalid appointment." }, { status: 400 });
     const appointment = await cancelAppointment(body.confirmationToken);
