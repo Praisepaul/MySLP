@@ -1,13 +1,12 @@
 "use client";
 
+import * as React from "react";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { ProfileFaqItem, ProfileResource, ProfileTestimonial } from "@/lib/cms/site-settings-repository";
-
-type EntryState<T> = { draft: T; editingIndex: number | null };
 
 export function ProfileTestimonialsField({ value, onChange }: { value: ProfileTestimonial[]; onChange: (value: ProfileTestimonial[]) => void }) {
   const empty = { quote: "", name: "", context: "" };
@@ -32,5 +31,3 @@ function EntryEditor<T extends object>({ label, description, addLabel, value, em
   function edit(index: number) { setEditingIndex(index); setDraft({ ...value[index] }); }
   return <div className="space-y-4"><div><Label>{label}</Label><p className="mt-1 text-xs text-muted-foreground">{description}</p></div><div className="rounded-2xl border bg-muted/20 p-4">{renderDraft(draft, setDraft)}<div className="mt-3 flex flex-wrap gap-2"><Button type="button" size="sm" onClick={saveEntry}><Plus /> {editingIndex === null ? addLabel : "Save changes"}</Button>{editingIndex !== null && <Button type="button" size="sm" variant="ghost" onClick={reset}><X /> Cancel</Button>}</div></div>{value.length > 0 && <div className="grid gap-3">{value.map((item, index) => <div key={index} className="rounded-2xl border bg-card p-4"><div className="min-w-0">{renderSaved(item)}</div><div className="mt-3 flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => edit(index)}><Pencil /> Edit</Button><Button type="button" size="sm" variant="ghost" onClick={() => { if (editingIndex === index) reset(); onChange(value.filter((_, itemIndex) => itemIndex !== index)); }}><Trash2 /> Remove</Button></div></div>)}</div>}</div>;
 }
-
-import * as React from "react";
