@@ -14,7 +14,8 @@ export async function GET(_request: Request, context: RouteContext) {
   if (!confirmationToken || confirmationToken.length > 100) return NextResponse.json({ error: "Appointment not found." }, { status: 404 });
   const appointment = await findAppointmentByToken(confirmationToken);
   if (!appointment) return NextResponse.json({ error: "Appointment not found." }, { status: 404 });
-  return NextResponse.json({ appointment: toAppointmentPublicView(appointment) });
+  const settings = await getBookingSettings();
+  return NextResponse.json({ appointment: toAppointmentPublicView(appointment), policy: { cancellationAllowed: settings.cancellationAllowed, reschedulingAllowed: settings.reschedulingAllowed } });
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
