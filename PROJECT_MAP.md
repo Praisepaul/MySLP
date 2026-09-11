@@ -24,7 +24,7 @@ Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoD
 ## Architecture
 ```text
 PUBLIC
-  /                         persisted therapist profile + automatic profile details + services preview
+  /                         persisted therapist profile + automatic profile details/content + services preview
   /book                     persisted services + booking engine
   /appointment/[token]      appointment management
   /appointment/[token]/reschedule
@@ -47,7 +47,10 @@ CMS
   lib/cms/services-repository.ts
   lib/cms/availability-repository.ts
   components/admin/profile/profile-form.tsx — optional profile editor + tag inputs + live preview + photo upload
+  components/admin/profile/profile-content-fields.tsx — optional testimonials/FAQ/resources editors
   components/public/profile/profile-details.tsx — automatic public presentation of optional profile details
+  components/public/profile/profile-content.tsx — automatic testimonials/resources presentation
+  components/public/profile/profile-faq.tsx — CMS-driven FAQ with safe default FAQ fallback
   app/api/admin/profile/image/route.ts — authenticated GridFS profile photo upload/removal
   app/api/profile/image/route.ts — public GridFS profile photo delivery
   MongoDB: site_settings
@@ -103,7 +106,7 @@ MONGO COLLECTIONS
 **Complete.** Current CMS/admin button placement and layout are intentionally preserved while functionality is connected.
 
 ## Phase 2 — Public therapist profile
-**Complete + CMS connected.** Public homepage loads `getTherapistProfile()` from `lib/cms/site-settings-repository.ts`, with the original config retained as a safe default. Profile details now render through a reusable scaffold so CMS content controls presentation rather than page composition.
+**Complete + CMS connected.** Public homepage loads `getTherapistProfile()` from `lib/cms/site-settings-repository.ts`, with the original config retained as a safe default. Profile details/content now render through reusable scaffolds so CMS content controls presentation rather than page composition.
 
 ## Phase 3 — Services CMS
 **Implemented persisted CMS.**
@@ -145,9 +148,9 @@ Admin scheduling reuses `createAppointment()` / `rescheduleAppointment()`, the e
 The temporary setup access gate remains in place. True admin authentication belongs to Phase 16.
 
 ## Phase 12 — Profile CMS
-**Expanded and complete.** Mongo document: `site_settings`, `_id = therapist-profile`. The admin editor now covers optional identity, bios, credentials, education/qualifications, professional memberships, specialties/areas of expertise, age groups, populations/who the therapist supports, languages, therapy approach, first-session expectations, assessment/evaluation information, referral requirements, accessibility, insurance/payment information, location/service area, timezone, session types, contact details, social links and a personal “why I became an SLP” note. No profile field is required to save or update the CMS document; validation only protects content quality such as length, email syntax and valid IANA timezone values when supplied.
+**Expanded and complete.** Mongo document: `site_settings`, `_id = therapist-profile`. The admin editor covers optional identity, bios, credentials, education/qualifications, professional memberships, specialties/areas of expertise, age groups, populations/who the therapist supports, languages, therapy approach, first-session expectations, assessment/evaluation information, referral requirements, accessibility, insurance/payment information, location/service area, timezone, session types, contact details, social links and a personal “why I became an SLP” note. It also supports optional testimonials, patient FAQs and resources/articles. No profile field is required to save or update the CMS document; validation only protects content quality such as length, email syntax and valid IANA timezone values when supplied.
 
-List-style profile content uses reusable tag inputs: Enter or comma adds an item, duplicates are avoided, and items can be removed individually. On the public site, specialties, age groups, populations and languages become polished pills; education/memberships become clean lists; clinical/practical information becomes responsive cards; and the personal story becomes a dedicated personal-note section. Empty content automatically hides its section. `components/public/profile/profile-details.tsx` owns this presentation scaffold, so the therapist only supplies content and never has to think about page design.
+List-style profile content uses reusable tag inputs: Enter or comma adds an item, duplicates are avoided, and items can be removed individually. On the public site, specialties, age groups, populations and languages become polished pills; education/memberships become clean lists; clinical/practical information becomes responsive cards; testimonials become a horizontal snap-scrolling story row; resources become responsive linked cards; FAQs become CMS-driven cards; and the personal story becomes a dedicated personal-note section. Empty content automatically hides its section. `components/public/profile/profile-details.tsx`, `components/public/profile/profile-content.tsx` and `components/public/profile/profile-faq.tsx` own this presentation scaffold, so the therapist only supplies content and never has to think about page design.
 
 The editor retains the live public-profile preview and one-click public-profile link. Direct therapist photo upload/removal remains available. Uploaded profile photos are stored in MongoDB GridFS under the `profile_media` bucket and exposed through `/api/profile/image`; no third-party storage dependency is required. The external direct-image URL option remains available for compatibility. Profile timezone uses the shared searchable IANA timezone control.
 
