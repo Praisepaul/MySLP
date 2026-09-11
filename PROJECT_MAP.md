@@ -37,7 +37,7 @@ ADMIN
   /admin/booking-settings   persistent Booking Settings CMS
 
 SHARED UI
-  components/ui/timezone-select.tsx — searchable full IANA timezone input/datalist
+  components/ui/timezone-select.tsx — searchable full IANA timezone input
 
 CMS
   lib/cms/site-settings-repository.ts
@@ -99,12 +99,12 @@ MONGO COLLECTIONS
 **Implemented persisted CMS.**
 
 ## Phase 4 — Availability management
-**Implemented persisted CMS with therapist-focused bulk workflow and calendar view.** The recurring day selector now uses compact Sun–Sat circular controls: selected is black/white and unselected is white/black. Availability timezone uses the shared searchable IANA timezone control. Existing approved button placement is preserved.
+**Implemented persisted CMS with therapist-focused bulk workflow and calendar view.** The recurring day selector uses compact Sun–Sat circular controls: selected is black/white and unselected is white/black. Availability timezone uses the shared searchable IANA timezone control. Existing approved button placement is preserved. Date-specific changes support full-day unavailable exceptions, partial-day unavailable exceptions, and custom available-hours exceptions.
 
 Files include `components/admin/availability/availability-manager-v2.tsx` and the existing quick-tools/list/form files. No new versioned availability filenames should be introduced going forward.
 
 ## Phase 5 — Booking engine
-**Complete.** Existing slot/conflict logic remains authoritative. `getBookableSlotsWithConfiguration()` is the reusable runtime configuration boundary; `getBookableSlots()` remains for compatibility/defaults.
+**Complete.** Existing slot/conflict logic remains authoritative. `getBookableSlotsWithConfiguration()` is the reusable runtime configuration boundary; `getBookableSlots()` remains for compatibility/defaults. Availability exceptions are applied inside `lib/booking/availability-engine.ts`, including subtraction of partial-day `unavailable-hours` windows from normal availability.
 
 ## Phase 6 — Patient booking experience
 **Complete + UI polish.** Service → searchable timezone → date/time → details → review → appointment creation. Booking slot, summary, confirmation, management and reschedule displays now use 24-hour times.
@@ -166,10 +166,11 @@ Remaining: richer operational controls/retry, native admin availability-picker r
 4. MongoDB is authoritative for application booking state.
 5. Services are authoritative in `cms_services` once persisted; static service config is fallback only for an uninitialized installation.
 6. Availability rules/exceptions are authoritative in `cms_availability` once persisted; static availability config is fallback only for an uninitialized installation.
-7. Never bypass booking validation or booking locks.
-8. Google external conflicts belong in `google_calendar_discovered_conflicts`.
-9. Never poll Google Calendar from the public revision loop.
-10. CMS writes affecting availability bump the existing `availability_revisions` singleton.
-11. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
-12. Do not create `-v2`, `-v3`, `-new` or similar versioned filenames for replacement UI implementations; preserve the canonical file architecture.
-13. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
+7. Existing `unavailable` and `custom-hours` exception documents remain valid; `unavailable-hours` is an additive type for blocking only a specific time interval.
+8. Never bypass booking validation or booking locks.
+9. Google external conflicts belong in `google_calendar_discovered_conflicts`.
+10. Never poll Google Calendar from the public revision loop.
+11. CMS writes affecting availability bump the existing `availability_revisions` singleton.
+12. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
+13. Do not create `-v2`, `-v3`, `-new` or similar versioned filenames for replacement UI implementations; preserve the canonical file architecture.
+14. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
