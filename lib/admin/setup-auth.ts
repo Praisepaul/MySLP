@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
-const stateCookieName = "grace_google_calendar_oauth_state";
+const stateCookieName = "__Host-grace_google_calendar_oauth_state";
 const stateMaxAgeSeconds = 10 * 60;
 
 function getOAuthStateSecret(): string {
@@ -54,7 +54,7 @@ export async function createGoogleCalendarOAuthState(): Promise<string> {
   cookieStore.set(stateCookieName, createSignedValue(state), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
     path: "/",
     maxAge: stateMaxAgeSeconds,
   });
