@@ -6,7 +6,7 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/types";
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { getMongoDb } from "@/lib/db/mongodb";
 import { adminUsername, isAdminAuthenticated, requireAdminSession } from "@/lib/admin/auth";
 
@@ -112,7 +112,7 @@ export async function beginAdminPasskeyRegistration(request: Request) {
   const options = await generateRegistrationOptions({
     rpName: "Grace Session Scheduler",
     rpID: getRpId(request),
-    userID: passkeyUserId,
+    userID: Buffer.from(passkeyUserId),
     userName: passkeyUserName,
     userDisplayName: "Grace therapist account",
     timeout: 60_000,
