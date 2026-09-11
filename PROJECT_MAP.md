@@ -60,6 +60,7 @@ APPOINTMENTS
   lib/appointments/appointment-types.ts
   lib/appointments/appointment-repository.ts
   lib/appointments/appointment-service.ts
+  components/admin/appointments/admin-appointment-scheduling.tsx — shared admin create/reschedule availability picker
 
 CALENDAR
   lib/calendar/google-calendar-config.ts
@@ -128,9 +129,11 @@ Files include `components/admin/availability/availability-manager-v2.tsx` and th
 **Complete and end-to-end validated.** Deterministic event projection, update/delete, Google Meet, attendee notifications and public rescheduling are implemented.
 
 ## Phase 11 — Admin appointment management + therapist calendar
-**Active.** Implemented list/search/status/date filters, details in list, Meet, Calendar sync state, completed/no-show/cancel, realtime revision sync and manual Refresh. The `/admin/calendar` tab now includes a compact responsive week timeline: desktop/laptop uses smaller rows, compresses empty time gaps between event clusters, and keeps the schedule in an internal scroll region; mobile uses compact chronological day cards inside an internal scroll region. It combines Grace Sessions appointments with Google Calendar events and uses a selected-week fetch rather than continuous Google polling. `getGoogleCalendarEvents()` exposes event details while the existing cached busy/free architecture remains intact.
+**Complete.** Admin appointment operations now include list/search/status/date filters, appointment details, Meet access, Calendar sync state, completed/no-show/cancel, live Mongo revision sync, manual Refresh, direct admin appointment creation, native availability-picker rescheduling, and safe Google Calendar retry controls. The `/admin/calendar` tab includes a compact responsive week timeline: desktop/laptop uses smaller rows, compresses empty time gaps between event clusters, and keeps the schedule in an internal scroll region; mobile uses compact chronological day cards inside an internal scroll region. It combines Grace Sessions appointments with Google Calendar events and uses a selected-week fetch rather than continuous Google polling.
 
-Remaining: richer operational controls/retry, native admin availability-picker rescheduling UI, manual admin creation UI, true admin authentication, and deeper availability-window visualization.
+Admin scheduling reuses `createAppointment()` / `rescheduleAppointment()`, the existing availability API and booking engine, transactional booking locks, and the existing Google Calendar event service. Google sync retry updates or creates the deterministic event for confirmed appointments and removes the projected event for cancelled appointments without changing Mongo appointment authority.
+
+The temporary setup access gate remains in place. True admin authentication belongs to Phase 16.
 
 ## Phase 12 — Profile CMS
 **Implemented initial persisted CMS + UI polish.** Mongo document: `site_settings`, `_id = therapist-profile`. Profile timezone now uses the shared searchable IANA timezone control. Profile image is currently an external direct-image URL; the public hero safely falls back if the supplied URL is not a loadable image.

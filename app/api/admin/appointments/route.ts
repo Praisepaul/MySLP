@@ -1,8 +1,9 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { appointmentStatuses, type AppointmentDocument, type AppointmentStatus } from "@/lib/appointments/appointment-types";
-import { AppointmentBookingError, rescheduleAppointment } from "@/lib/appointments/appointment-service";
-import { cancelAppointment, findAdminAppointments, toAppointmentPublicView, updateAppointmentStatus, updateGoogleCalendarSyncStatus } from "@/lib/appointments/appointment-repository";
-import { deleteGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
+import { AppointmentBookingError, createAppointment, rescheduleAppointment } from "@/lib/appointments/appointment-service";
+import { cancelAppointment, findAdminAppointments, findAppointmentByToken, toAppointmentPublicView, updateAppointmentStatus, updateGoogleCalendarSyncStatus } from "@/lib/appointments/appointment-repository";
+import { createGoogleCalendarAppointmentEvent, deleteGoogleCalendarAppointmentEvent, updateGoogleCalendarAppointmentEvent } from "@/lib/calendar/google-calendar-event-service";
 import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
 
 export const runtime = "nodejs";
@@ -15,6 +16,10 @@ function serialize(appointment: AppointmentDocument) {
     idempotencyKey: appointment.idempotencyKey,
     googleCalendar: appointment.googleCalendar,
   };
+}
+
+function unauthorized(error: unknown) {
+  return error instanceof Error && error.message === "Google Calendar setup access is required.";
 }
 
 export async function GET(request: Request) {
@@ -32,8 +37,26 @@ export async function GET(request: Request) {
     const appointments = await findAdminAppointments({ status, search, from, to });
     return NextResponse.json({ appointments: appointments.map(serialize) });
   } catch (error) {
-    const status = error instanceof Error && error.message === "Google Calendar setup access is required." ? 401 : 500;
-    return NextResponse.json({ error: status === 401 ? "Admin access is required." : "We couldn't load appointments." }, { status });
+    return NextResponse.json({ error: unauthorized(error) ? "Admin access is required." : "We couldn't load appointments." }, { status: unauthorized(error) ? 401 : 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    await requireGoogleCalendarSetupAccess();
+    const body = await request.json() as { serviceId?: unknown; startAt?: unknown; timezone?: unknown; name?: unknown; email?: unknown; idempotencyKey?: unknown };
+    const appointment = await createAppointment({
+      serviceId: body.serviceId,
+      startAt: body.startAt,
+      timezone: body.timezone,
+      name: body.name,
+      email: body.email,
+      idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : randomUUID(),
+    });
+    return NextResponse.json({ appointment: serialize(appointment) }, { status: 201 });
+  } catch (error) {
+    const status = unauthorized(error) ? 401 : error instanceof AppointmentBookingError ? (error.code === "INVALID_REQUEST" ? 400 : error.code === "UNAVAILABLE" ? 409 : 500) : 500;
+    return NextResponse.json({ error: unauthorized(error) ? "Admin access is required." : error instanceof Error ? error.message : "We couldn't create the appointment." }, { status });
   }
 }
 
@@ -54,10 +77,36 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ appointment: serialize(appointment) });
     }
 
+    if (body.action === "retry_calendar_sync") {
+      const appointment = await findAppointmentByToken(body.confirmationToken);
+      if (!appointment) return NextResponse.json({ error: "Appointment not found." }, { status: 404 });
+      try {
+        if (appointment.status === "cancelled") {
+          if (appointment.googleCalendar?.eventId) await deleteGoogleCalendarAppointmentEvent(appointment.googleCalendar.eventId);
+          await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "synced", error: undefined });
+        } else if (appointment.googleCalendar?.eventId) {
+          const meetJoinUrl = await updateGoogleCalendarAppointmentEvent(appointment);
+          await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "synced", meetJoinUrl, error: undefined });
+        } else {
+          const event = await createGoogleCalendarAppointmentEvent(appointment);
+          if (!event) {
+            await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "not_connected", error: undefined });
+          } else {
+            await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "synced", eventId: event.eventId, meetJoinUrl: event.meetJoinUrl, error: undefined });
+          }
+        }
+      } catch (syncError) {
+        await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "failed", error: syncError instanceof Error ? syncError.message.slice(0, 500) : "Google Calendar sync failed." });
+        return NextResponse.json({ error: "Google Calendar sync could not be completed. The appointment itself is still safe." }, { status: 502 });
+      }
+      const refreshed = await findAppointmentByToken(body.confirmationToken);
+      return NextResponse.json({ appointment: refreshed ? serialize(refreshed) : null });
+    }
+
     return NextResponse.json({ error: "Unsupported appointment action." }, { status: 400 });
   } catch (error) {
-    const status = error instanceof AppointmentBookingError ? (error.code === "INVALID_REQUEST" ? 400 : error.code === "UNAVAILABLE" ? 409 : 500) : 500;
-    return NextResponse.json({ error: error instanceof Error ? error.message : "We couldn't update the appointment." }, { status });
+    const status = unauthorized(error) ? 401 : error instanceof AppointmentBookingError ? (error.code === "INVALID_REQUEST" ? 400 : error.code === "UNAVAILABLE" ? 409 : 500) : 500;
+    return NextResponse.json({ error: unauthorized(error) ? "Admin access is required." : error instanceof Error ? error.message : "We couldn't update the appointment." }, { status });
   }
 }
 
@@ -72,14 +121,13 @@ export async function DELETE(request: Request) {
     if (eventId) {
       try {
         await deleteGoogleCalendarAppointmentEvent(eventId);
-        await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "synced" });
+        await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "synced", error: undefined });
       } catch (error) {
         await updateGoogleCalendarSyncStatus({ confirmationToken: appointment.confirmationToken, syncStatus: "failed", error: error instanceof Error ? error.message.slice(0, 500) : "Google Calendar event deletion failed." });
       }
     }
     return NextResponse.json({ appointment: serialize(appointment) });
   } catch (error) {
-    const status = error instanceof Error && error.message === "Google Calendar setup access is required." ? 401 : 500;
-    return NextResponse.json({ error: status === 401 ? "Admin access is required." : "We couldn't cancel the appointment." }, { status });
+    return NextResponse.json({ error: unauthorized(error) ? "Admin access is required." : "We couldn't cancel the appointment." }, { status: unauthorized(error) ? 401 : 500 });
   }
 }
