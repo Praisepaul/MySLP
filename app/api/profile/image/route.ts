@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { GridFSBucket } from "mongodb";
-import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
+import { requireAdminSession } from "@/lib/admin/auth";
 import { getMongoDb } from "@/lib/db/mongodb";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ const draftFileName = "therapist-profile-image-draft";
 export async function GET(request: Request) {
   const isDraft = new URL(request.url).searchParams.get("draft") === "1";
   if (isDraft) {
-    try { await requireGoogleCalendarSetupAccess(); } catch { return new NextResponse(null, { status: 401 }); }
+    try { await requireAdminSession(); } catch { return new NextResponse(null, { status: 401 }); }
   }
   const bucket = new GridFSBucket(await getMongoDb(), { bucketName });
   const fileName = isDraft ? draftFileName : publishedFileName;
