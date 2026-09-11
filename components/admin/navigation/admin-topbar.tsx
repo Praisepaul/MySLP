@@ -40,6 +40,12 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
         >
           T
         </div>
+
+        <form action="/api/admin/auth/logout" method="post">
+          <Button type="submit" variant="outline" size="sm">
+            Log out
+          </Button>
+        </form>
       </div>
     </header>
   );
