@@ -1,9 +1,9 @@
-# Grace Session Scheduler — Project Map
+# Ephatha — Project Map
 
 > **Authoritative architecture/progress map.** `main` is the source of truth. Update this file whenever phases, architecture, filenames, functions, collections, security controls, tests, or environment rules change.
 
 ## Product / trust model
-- MongoDB is authoritative for Grace Sessions appointments, booking state, persisted CMS settings, and realtime revisions.
+- MongoDB is authoritative for Ephatha appointments, booking state, persisted CMS settings, and realtime revisions.
 - `appointment_booking_locks` protects booking concurrency. Never bypass booking validation or locks.
 - Google Calendar is the external therapist-calendar/free-busy signal and event projection; MongoDB remains authoritative if Google reconciliation fails.
 - `googleCalendarConnectionId` is the Mongo connection identifier (`therapist`); `googleCalendarId` is the Google API calendar identifier (`primary`). Never mix them.
@@ -131,7 +131,7 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - Phase 16C security/privacy audit/remediation: **Complete**; report `docs/SECURITY_AUDIT_16C.md`.
 - Phase 17 responsive/accessibility final pass: **Implemented initial final-pass hardening**; remaining validation is manual/local production QA rather than CI browser tests.
 - Phase 18 automated testing/CI: **Removed** at the project owner's request. Temporary regression tests, browser smoke tests, Playwright configuration and CI workflow are no longer part of the application architecture.
-- Phase 19 production deployment: **Planned** — Cloudflare edge/WAF/analytics in front of Vercel is the preferred architecture; MongoDB Atlas remains authoritative; Google Cloud OAuth remains the calendar integration.
+- Phase 19 production deployment: **Planned** — Vercel-only hosting is the current deployment architecture; MongoDB Atlas remains authoritative; Google Cloud OAuth remains the calendar integration. Cloudflare is optional only if a custom domain is introduced later.
 - Phase 20 handover: **Planned**.
 
 ## Environment configuration
