@@ -20,7 +20,7 @@ export default async function AdminLoginPage() {
           <p className="text-sm font-semibold tracking-tight">Grace Sessions</p>
           <p className="mt-1 text-xs text-muted-foreground">Private therapist workspace</p>
         </div>
-        <AdminLoginForm configured={isAdminAuthConfigured()} />
+        <AdminLoginForm configured={await isAdminAuthConfigured()} />
       </div>
     </main>
   );
