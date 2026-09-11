@@ -42,7 +42,7 @@ type PasskeyChallengeRecord = {
   expiresAt: Date;
 };
 
-function getConfiguredRp(): { rpID: string; origin: string } {
+function getConfiguredRp(request: Request): { rpID: string; origin: string } {
   const configuredOrigin = process.env.GRACE_ADMIN_ORIGIN?.trim().replace(/\/$/, "");
   const configuredRpId = process.env.GRACE_ADMIN_RP_ID?.trim();
 
@@ -51,7 +51,8 @@ function getConfiguredRp(): { rpID: string; origin: string } {
   }
 
   if (configuredOrigin && configuredRpId) return { rpID: configuredRpId, origin: configuredOrigin };
-  return { rpID: "localhost", origin: "http://localhost:3000" };
+  const url = new URL(request.url);
+  return { rpID: url.hostname, origin: url.origin };
 }
 
 function getChallengeSecret(): string {
@@ -92,8 +93,8 @@ function parseChallengeCookie(rawValue: string | undefined, expectedAction: Chal
 
 async function setChallengeCookie(challenge: string, action: ChallengePayload["action"]): Promise<void> {
   const nonce = randomBytes(24).toString("base64url");
-  const db = await getMongoDb();
   await ensurePasskeyIndexes();
+  const db = await getMongoDb();
   await db.collection<PasskeyChallengeRecord>(challengeCollection).insertOne({
     _id: nonce,
     challenge,
@@ -105,7 +106,7 @@ async function setChallengeCookie(challenge: string, action: ChallengePayload["a
   cookieStore.set(challengeCookieName, createChallengeCookieValue(challenge, action, nonce), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
     path: "/",
     maxAge: challengeMaxAgeSeconds,
   });
@@ -146,11 +147,11 @@ async function getPasskeyByCredentialId(credentialId: string): Promise<AdminPass
   return db.collection<AdminPasskeyRecord>(passkeyCollection).findOne({ credentialId, userId: passkeyUserId });
 }
 
-export async function beginAdminPasskeyRegistration() {
+export async function beginAdminPasskeyRegistration(request: Request) {
   await requireAdminSession();
   await ensurePasskeyIndexes();
   const existing = await listPasskeys();
-  const { rpID } = getConfiguredRp();
+  const { rpID } = getConfiguredRp(request);
   const options = await generateRegistrationOptions({
     rpName: "Grace Session Scheduler",
     rpID,
@@ -169,12 +170,12 @@ export async function beginAdminPasskeyRegistration() {
   return options;
 }
 
-export async function finishAdminPasskeyRegistration(response: RegistrationResponseJSON) {
+export async function finishAdminPasskeyRegistration(request: Request, response: RegistrationResponseJSON) {
   await requireAdminSession();
   const expectedChallenge = await consumeChallengeCookie("registration");
   if (!expectedChallenge) throw new Error("The passkey registration request has expired. Please try again.");
 
-  const { origin, rpID } = getConfiguredRp();
+  const { origin, rpID } = getConfiguredRp(request);
   const verification = await verifyRegistrationResponse({
     response,
     expectedChallenge,
@@ -197,8 +198,8 @@ export async function finishAdminPasskeyRegistration(response: RegistrationRespo
   });
 }
 
-export async function beginAdminPasskeyAuthentication() {
-  const { rpID } = getConfiguredRp();
+export async function beginAdminPasskeyAuthentication(request: Request) {
+  const { rpID } = getConfiguredRp(request);
   const options = await generateAuthenticationOptions({
     rpID,
     userVerification: "required",
@@ -208,14 +209,14 @@ export async function beginAdminPasskeyAuthentication() {
   return options;
 }
 
-export async function finishAdminPasskeyAuthentication(response: AuthenticationResponseJSON): Promise<boolean> {
+export async function finishAdminPasskeyAuthentication(request: Request, response: AuthenticationResponseJSON): Promise<boolean> {
   const expectedChallenge = await consumeChallengeCookie("authentication");
   if (!expectedChallenge) throw new Error("The passkey sign-in request has expired. Please try again.");
 
   const stored = await getPasskeyByCredentialId(response.id);
   if (!stored) return false;
 
-  const { origin, rpID } = getConfiguredRp();
+  const { origin, rpID } = getConfiguredRp(request);
   const verification = await verifyAuthenticationResponse({
     response,
     expectedChallenge,
