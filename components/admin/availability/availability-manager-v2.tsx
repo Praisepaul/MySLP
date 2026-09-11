@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,18 @@ export function AvailabilityManagerV2({ initialRules, initialExceptions }: Avail
   const [showNewException, setShowNewException] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const newRuleFormRef = useRef<HTMLDivElement | null>(null);
+  const newExceptionFormRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showNewRule) return;
+    requestAnimationFrame(() => newRuleFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [showNewRule]);
+
+  useEffect(() => {
+    if (!showNewException) return;
+    requestAnimationFrame(() => newExceptionFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [showNewException]);
 
   async function save(nextRules: AvailabilityRule[], nextExceptions: AvailabilityException[]) {
     setBusy(true);
@@ -109,7 +121,7 @@ export function AvailabilityManagerV2({ initialRules, initialExceptions }: Avail
           busy={busy}
           renderEditor={(rule) => <AvailabilityRuleForm key={rule.id} initialRule={rule} onCancel={close} onSubmitRules={saveRules} />}
         />
-        {showNewRule && <Card className="mt-4"><CardHeader><CardTitle>Add availability</CardTitle></CardHeader><CardContent><AvailabilityRuleForm onCancel={close} onSubmitRules={saveRules} /></CardContent></Card>}
+        {showNewRule && <div ref={newRuleFormRef} className="scroll-mt-24"><Card className="mt-4"><CardHeader><CardTitle>Add availability</CardTitle></CardHeader><CardContent><AvailabilityRuleForm onCancel={close} onSubmitRules={saveRules} /></CardContent></Card></div>}
       </section>
 
       <section>
@@ -128,7 +140,7 @@ export function AvailabilityManagerV2({ initialRules, initialExceptions }: Avail
           busy={busy}
           renderEditor={(item) => <AvailabilityExceptionForm key={item.id} initialException={item} onCancel={close} onSubmit={saveException} />}
         />
-        {showNewException && <Card className="mt-4"><CardHeader><CardTitle>Add exception</CardTitle></CardHeader><CardContent><AvailabilityExceptionForm onCancel={close} onSubmit={saveException} /></CardContent></Card>}
+        {showNewException && <div ref={newExceptionFormRef} className="scroll-mt-24"><Card className="mt-4"><CardHeader><CardTitle>Add exception</CardTitle></CardHeader><CardContent><AvailabilityExceptionForm onCancel={close} onSubmit={saveException} /></CardContent></Card></div>}
       </section>
     </div>
   );
