@@ -207,7 +207,7 @@ export function AdminAccountMenu() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Set up a passkey</DialogTitle>
-            <DialogDescription>Use your device's fingerprint, face unlock, PIN, or security key to sign in to the therapist admin panel without typing the password.</DialogDescription>
+            <DialogDescription>Use your device&apos;s fingerprint, face unlock, PIN, or security key to sign in to the therapist admin panel without typing the password.</DialogDescription>
           </DialogHeader>
           {passkeyError && <p className="text-sm text-destructive" role="alert">{passkeyError}</p>}
           {passkeyMessage && <p className="text-sm text-emerald-700" role="status">{passkeyMessage}</p>}
