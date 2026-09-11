@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 test.describe("production UI smoke and security boundaries", () => {
   test("admin login remains usable without horizontal overflow", async ({ page }) => {
     await page.goto("/admin-login");
-    await expect(page).toHaveTitle(/Grace Sessions/);
-    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+    await expect(page).toHaveTitle(/Therapist login/);
+    await expect(page.getByRole("heading", { name: "Therapist login" })).toBeVisible();
     await expect(page.getByRole("button", { name: /sign in with passkey/i })).toBeVisible();
     await expect(page.locator("input").first()).toBeVisible();
 
@@ -20,7 +20,7 @@ test.describe("production UI smoke and security boundaries", () => {
   test("admin route is protected before the private workspace renders", async ({ page }) => {
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin-login(?:\?|$)/);
-    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Therapist login" })).toBeVisible();
   });
 
   test("admin API rejects unauthenticated access", async ({ request }) => {
