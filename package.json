@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test \"tests/**/*.test.ts\"",
+    "test": "tsx --test tests/booking-engine.test.ts tests/slot-engine.test.ts tests/security-invariants.test.ts",
     "test:e2e": "playwright test",
     "admin:hash-password": "node scripts/generate-admin-password-hash.mjs"
   },
