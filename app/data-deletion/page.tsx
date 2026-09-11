@@ -51,7 +51,7 @@ export default function DataDeletionPage() {
         <p>
           We may need to verify your identity or authority before deleting or
           disclosing personal information. This protects against another person
-          attempting to delete, access, or alter someone else's information.
+          attempting to delete, access, or alter someone else&apos;s information.
         </p>
         <p>
           Verification will be limited to information reasonably necessary for the
@@ -91,13 +91,13 @@ export default function DataDeletionPage() {
           Ephatha provides an optional Google Calendar integration for the therapist.
           If the Google Calendar connection is disconnected, Ephatha stops using the
           authorization for subsequent calendar operations and removes stored OAuth
-          connection credentials according to the application's data lifecycle.
+          connection credentials according to the application&apos;s data lifecycle.
         </p>
         <p>
-          Google may independently retain or process information under Google's own
+          Google may independently retain or process information under Google&apos;s own
           terms, privacy policies, and data-retention practices. Ephatha cannot
           delete information that is independently controlled by Google; requests
-          concerning Google's own systems may need to be made directly to Google.
+          concerning Google&apos;s own systems may need to be made directly to Google.
         </p>
 
         <h2>6. Google User Data and Deletion Boundaries</h2>

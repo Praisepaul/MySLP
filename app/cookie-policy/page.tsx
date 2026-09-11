@@ -92,13 +92,13 @@ export default function CookiePolicyPage() {
           Third-party services used by Ephatha, such as Google services, may use
           their own cookies or similar technologies when you interact directly with
           those services. Those technologies are governed by the applicable third
-          party's own policies and settings rather than this Cookie Policy.
+          party&apos;s own policies and settings rather than this Cookie Policy.
         </p>
 
         <h2>5. Managing Cookies</h2>
         <p>
           Most modern browsers allow you to view, block, or delete cookies through
-          their privacy settings. You can consult your browser's documentation for
+          their privacy settings. You can consult your browser&apos;s documentation for
           instructions.
         </p>
         <p>

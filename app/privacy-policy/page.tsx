@@ -241,8 +241,8 @@ export default function PrivacyPolicyPage() {
         <p>
           If the therapist disconnects Google Calendar, Ephatha stops using the
           authorization for subsequent calendar operations and removes the stored
-          connection credentials according to the application's data lifecycle.
-          Google may independently retain or process information under Google's
+          connection credentials according to the application&apos;s data lifecycle.
+          Google may independently retain or process information under Google&apos;s
           own policies.
         </p>
 
@@ -328,13 +328,13 @@ export default function PrivacyPolicyPage() {
         <p>
           To make a request, email <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>{" "}
           and identify the information or appointment concerned. We may need to
-          verify the requester's identity or authority before disclosing or deleting
+          verify the requester&apos;s identity or authority before disclosing or deleting
           information. We will respond within the period required by applicable law.
         </p>
 
         <h2>11. Children and Minors</h2>
         <p>
-          Ephatha's services may be provided to minors. Online booking should be
+          Ephatha&apos;s services may be provided to minors. Online booking should be
           completed by a parent, legal guardian, or other authorized adult where
           required by applicable law. We do not intentionally request unnecessary
           personal information directly from children.
