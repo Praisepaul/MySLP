@@ -4,12 +4,195 @@ import { CalendarDays, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDataSync } from "@/lib/ui/use-data-sync";
-type Appointment = { patientName: string; service: { name: string }; startAt: string; timezone: string; status: string };
-function formatAppointment(appointment: Appointment) { return new Intl.DateTimeFormat("en", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: appointment.timezone }).format(new Date(appointment.startAt)); }
+type Appointment = {
+  patientName: string;
+  service: { name: string };
+  startAt: string;
+  timezone: string;
+  status: string;
+};
+function formatAppointment(appointment: Appointment) {
+  return new Intl.DateTimeFormat("en", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: appointment.timezone,
+  }).format(new Date(appointment.startAt));
+}
 export function AdminDashboard() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
-  const loadDashboard = useCallback(async () => { setLoading(true); try { const params = new URLSearchParams({ status: "confirmed", from: new Date().toISOString() }); const response = await fetch(`/api/admin/appointments?${params.toString()}`, { cache: "no-store" }); const data = await response.json(); if (!response.ok) throw new Error(data.error ?? "We couldn't load the dashboard."); setAppointments(data.appointments as Appointment[]); setError(null); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "We couldn't load the dashboard."); } finally { setLoading(false); } }, []);
-  const { refresh, refreshing } = useDataSync({ revisionUrl: "/api/admin/appointments/revision", onRefresh: loadDashboard });
-  useEffect(() => { const timer = window.setTimeout(() => void loadDashboard(), 0); return () => window.clearTimeout(timer); }, [loadDashboard]);
-  return <div className="space-y-8"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-medium text-muted-foreground">Welcome back</p><h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Dashboard</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Manage your appointments, availability, services and public profile from one place.</p></div><Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => void refresh()} disabled={refreshing || loading}><RefreshCw aria-hidden="true" className={refreshing ? "animate-spin" : ""} /> Refresh</Button></div>{error && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}<div className="grid gap-4 md:grid-cols-3"><Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Upcoming appointments</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold tracking-tight">{loading ? <Loader2 className="size-6 animate-spin" /> : appointments.length}</p><p className="mt-2 text-sm leading-5 text-muted-foreground">Confirmed appointments currently scheduled.</p></CardContent></Card><Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Next appointment</CardTitle></CardHeader><CardContent>{loading ? <Loader2 className="size-6 animate-spin" /> : appointments[0] ? <><p className="font-semibold">{appointments[0].patientName}</p><p className="mt-1 text-sm text-muted-foreground">{appointments[0].service.name}</p><p className="mt-2 text-sm">{formatAppointment(appointments[0])}</p></> : <p className="text-sm text-muted-foreground">No confirmed appointments yet.</p>}</CardContent></Card><Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Scheduling</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold tracking-tight">Live</p><p className="mt-2 text-sm leading-5 text-muted-foreground">Appointment changes sync automatically while this page is open.</p></CardContent></Card></div><Card><CardHeader><CardTitle>Upcoming schedule</CardTitle></CardHeader><CardContent>{appointments.length === 0 ? <div className="rounded-xl border border-dashed p-8 text-center"><CalendarDays aria-hidden="true" className="mx-auto size-8 text-muted-foreground" /><p className="mt-3 text-sm text-muted-foreground">Your upcoming confirmed appointments will appear here.</p></div> : <div className="space-y-3">{appointments.slice(0, 8).map((appointment, index) => <div key={`${appointment.startAt}-${appointment.patientName}-${index}`} className="flex flex-col gap-1 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{appointment.patientName}</p><p className="text-sm text-muted-foreground">{appointment.service.name}</p></div><p className="text-sm text-muted-foreground">{formatAppointment(appointment)}</p></div>)}</div>}</CardContent></Card></div>;
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        status: "confirmed",
+        from: new Date().toISOString(),
+      });
+      const response = await fetch(
+        `/api/admin/appointments?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error ?? "We couldn't load the dashboard.");
+      setAppointments(data.appointments as Appointment[]);
+      setError(null);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "We couldn't load the dashboard.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  const { refresh, refreshing } = useDataSync({
+    revisionUrl: "/api/admin/appointments/revision",
+    onRefresh: loadDashboard,
+  });
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadDashboard(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadDashboard]);
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">
+            Welcome back
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+            Dashboard
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+            Manage your appointments, availability, services and public profile
+            from one place.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="min-h-11 w-full sm:w-auto"
+          onClick={() => void refresh()}
+          disabled={refreshing || loading}
+        >
+          <RefreshCw
+            aria-hidden="true"
+            className={refreshing ? "animate-spin" : ""}
+          />{" "}
+          Refresh
+        </Button>
+      </div>
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+        >
+          {error}
+        </div>
+      )}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Upcoming appointments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tracking-tight">
+              {loading ? (
+                <Loader2 className="size-6 animate-spin" />
+              ) : (
+                appointments.length
+              )}
+            </p>
+            <p className="mt-2 text-sm leading-5 text-muted-foreground">
+              Confirmed appointments currently scheduled.
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Next appointment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Loader2 className="size-6 animate-spin" />
+            ) : appointments[0] ? (
+              <>
+                <p className="font-semibold">{appointments[0].patientName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {appointments[0].service.name}
+                </p>
+                <p className="mt-2 text-sm">
+                  {formatAppointment(appointments[0])}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No confirmed appointments yet.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Scheduling
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tracking-tight">Live</p>
+            <p className="mt-2 text-sm leading-5 text-muted-foreground">
+              Appointment changes sync automatically while this page is open.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Upcoming schedule</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {appointments.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-8 text-center">
+              <CalendarDays
+                aria-hidden="true"
+                className="mx-auto size-8 text-muted-foreground"
+              />
+              <p className="mt-3 text-sm text-muted-foreground">
+                Your upcoming confirmed appointments will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {appointments.slice(0, 8).map((appointment, index) => (
+                <div
+                  key={`${appointment.startAt}-${appointment.patientName}-${index}`}
+                  className="flex flex-col gap-1 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-medium">{appointment.patientName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {appointment.service.name}
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {formatAppointment(appointment)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

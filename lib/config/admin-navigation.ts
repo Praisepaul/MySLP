@@ -61,12 +61,7 @@ export const adminNavigation = [
                 label: "Booking settings",
                 href: "/admin/booking-settings",
                 icon: Settings,
-            },
-            {
-                label: "Settings",
-                href: "/admin/settings",
-                icon: Settings,
-            },
+            }
         ],
     },
 ] as const;
