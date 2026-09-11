@@ -9,6 +9,14 @@ const maxLoginAttempts = 8;
 const loginWindowMs = 15 * 60 * 1000;
 const loginBlockMs = 15 * 60 * 1000;
 
+type AdminLoginRateLimitRecord = {
+  _id: string;
+  attempts: number;
+  windowStartedAt: Date;
+  blockedUntil?: Date;
+  expiresAt: Date;
+};
+
 export const adminUsername = process.env.GRACE_ADMIN_USERNAME?.trim().toLowerCase() || "gracevpaul";
 
 export class AdminAuthenticationError extends Error {
@@ -132,7 +140,7 @@ function getRateLimitKey(username: string, request: Request): string {
 async function ensureRateLimitIndex() {
   try {
     const db = await getMongoDb();
-    await db.collection(adminLoginRateLimitCollection).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await db.collection<AdminLoginRateLimitRecord>(adminLoginRateLimitCollection).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   } catch {
     // Rate-limit storage is defense-in-depth. Authentication still fails closed on invalid credentials.
   }
@@ -141,7 +149,7 @@ async function ensureRateLimitIndex() {
 async function isLoginBlocked(key: string): Promise<boolean> {
   try {
     const db = await getMongoDb();
-    const record = await db.collection<{ blockedUntil?: Date }>(adminLoginRateLimitCollection).findOne({ _id: key });
+    const record = await db.collection<AdminLoginRateLimitRecord>(adminLoginRateLimitCollection).findOne({ _id: key });
     return Boolean(record?.blockedUntil && record.blockedUntil.getTime() > Date.now());
   } catch {
     return false;
@@ -152,7 +160,7 @@ async function recordFailedLogin(key: string): Promise<boolean> {
   try {
     await ensureRateLimitIndex();
     const db = await getMongoDb();
-    const collection = db.collection<{ _id: string; attempts: number; windowStartedAt: Date; blockedUntil?: Date; expiresAt: Date }>(adminLoginRateLimitCollection);
+    const collection = db.collection<AdminLoginRateLimitRecord>(adminLoginRateLimitCollection);
     const now = new Date();
     const existing = await collection.findOne({ _id: key });
 
@@ -178,7 +186,7 @@ async function recordFailedLogin(key: string): Promise<boolean> {
 async function clearFailedLogins(key: string): Promise<void> {
   try {
     const db = await getMongoDb();
-    await db.collection(adminLoginRateLimitCollection).deleteOne({ _id: key });
+    await db.collection<AdminLoginRateLimitRecord>(adminLoginRateLimitCollection).deleteOne({ _id: key });
   } catch {
     // Do not turn a successful login into an error because rate-limit cleanup failed.
   }
