@@ -134,7 +134,12 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - `app/terms/page.tsx` — public terms covering booking, cancellation, online sessions, cross-border professional-service considerations, acceptable use, liability, and disputes.
 - `app/cookie-policy/page.tsx` — essential-cookie disclosure; no advertising or behavioral tracking cookies in the core application.
 - `app/data-deletion/page.tsx` — public deletion-request instructions and Google Calendar disconnect/deletion explanation.
-- These policies are written to support Google OAuth verification, but legal compliance or Google verification is not guaranteed merely by publishing them; actual product behavior, OAuth scopes, domain verification, consent-screen configuration, and contact/legal-entity information must remain consistent with the published disclosures.
+- Privacy/legal contact: `gracepaulaslp@gmail.com`.
+- Operator: individual legal service provider; the policy intentionally does not invent a business/company name.
+- The Privacy Policy and Terms cover clients in India, the United States, the EEA, the UK, Canada, Ireland, Australia, and other jurisdictions while preserving mandatory local rights.
+- India is the general governing law stated in the Terms to the extent legally permitted; mandatory local consumer, privacy, healthcare, and telehealth laws are preserved.
+- Policies describe the current architecture: Vercel hosting, MongoDB Atlas, Google Calendar/Meet, appointment bearer links, essential security cookies, encrypted Google OAuth refresh credentials, and no advertising/behavioral tracking.
+- Legal pages are informational product documents, not a substitute for jurisdiction-specific legal advice. Before production publication, the operator should verify the exact legal name, professional licensing/telehealth requirements, cancellation/refund rules, and any healthcare-specific privacy obligations.
 
 ## Phase status
 - Phases 0–13: **Complete**.
