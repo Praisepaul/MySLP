@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { GridFSBucket } from "mongodb";
-import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
+import { requireAdminSession } from "@/lib/admin/auth";
 import { getMongoDb } from "@/lib/db/mongodb";
 import { getTherapistProfileDraft, saveTherapistProfileDraft } from "@/lib/cms/site-settings-repository";
 
@@ -17,7 +17,7 @@ async function deleteFiles(filename: string) { const bucket = await getBucket();
 
 export async function POST(request: Request) {
   try {
-    await requireGoogleCalendarSetupAccess();
+    await requireAdminSession();
     const formData = await request.formData(); const file = formData.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "Please choose an image file." }, { status: 400 });
     if (!allowedTypes.has(file.type)) return NextResponse.json({ error: "Please upload a JPG, PNG, WebP or GIF image." }, { status: 400 });
@@ -28,18 +28,18 @@ export async function POST(request: Request) {
     const profile = await getTherapistProfileDraft(); const saved = await saveTherapistProfileDraft({ ...profile, profileImage: "/api/profile/image?draft=1" });
     return NextResponse.json({ profile: saved, imageUrl: saved.profileImage });
   } catch (error) {
-    const unauthorized = error instanceof Error && error.message === "Google Calendar setup access is required.";
+    const unauthorized = error instanceof Error && error.message === "Admin authentication is required.";
     return NextResponse.json({ error: unauthorized ? "Admin access is required." : "We couldn't upload the profile image." }, { status: unauthorized ? 401 : 500 });
   }
 }
 
 export async function DELETE() {
   try {
-    await requireGoogleCalendarSetupAccess(); await deleteFiles(draftFileName);
+    await requireAdminSession(); await deleteFiles(draftFileName);
     const profile = await getTherapistProfileDraft(); const saved = await saveTherapistProfileDraft({ ...profile, profileImage: "" });
     return NextResponse.json({ profile: saved });
   } catch (error) {
-    const unauthorized = error instanceof Error && error.message === "Google Calendar setup access is required.";
+    const unauthorized = error instanceof Error && error.message === "Admin authentication is required.";
     return NextResponse.json({ error: unauthorized ? "Admin access is required." : "We couldn't remove the profile image." }, { status: unauthorized ? 401 : 500 });
   }
 }
