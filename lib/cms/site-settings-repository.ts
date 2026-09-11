@@ -13,6 +13,10 @@ type StoredDocument<T> = {
   updatedAt: Date;
 };
 
+export type ProfileTestimonial = { quote: string; name: string; context: string };
+export type ProfileFaqItem = { question: string; answer: string };
+export type ProfileResource = { title: string; description: string; url: string };
+
 export type EditableTherapistProfile = {
   name: string;
   professionalTitle: string;
@@ -32,6 +36,9 @@ export type EditableTherapistProfile = {
   accessibility: string;
   insurancePaymentInfo: string;
   whyIAmAnSlp: string;
+  testimonials: ProfileTestimonial[];
+  faqs: ProfileFaqItem[];
+  resources: ProfileResource[];
   location: string;
   timezone: string;
   acceptsOnlineAppointments: boolean;
@@ -66,6 +73,9 @@ const defaultProfile: EditableTherapistProfile = {
   accessibility: "",
   insurancePaymentInfo: "",
   whyIAmAnSlp: "",
+  testimonials: [],
+  faqs: [],
+  resources: [],
   location: therapistProfile.location,
   timezone: therapistProfile.timezone,
   acceptsOnlineAppointments: therapistProfile.acceptsOnlineAppointments,
@@ -112,6 +122,9 @@ function normalizeProfile(value: EditableTherapistProfile): EditableTherapistPro
     accessibility: (value.accessibility ?? "").trim(),
     insurancePaymentInfo: (value.insurancePaymentInfo ?? "").trim(),
     whyIAmAnSlp: (value.whyIAmAnSlp ?? "").trim(),
+    testimonials: (value.testimonials ?? []).map((item) => ({ quote: (item?.quote ?? "").trim(), name: (item?.name ?? "").trim(), context: (item?.context ?? "").trim() })).filter((item) => item.quote),
+    faqs: (value.faqs ?? []).map((item) => ({ question: (item?.question ?? "").trim(), answer: (item?.answer ?? "").trim() })).filter((item) => item.question && item.answer),
+    resources: (value.resources ?? []).map((item) => ({ title: (item?.title ?? "").trim(), description: (item?.description ?? "").trim(), url: (item?.url ?? "").trim() })).filter((item) => item.title),
     location: (value.location ?? "").trim(),
     timezone: (value.timezone ?? "").trim(),
     profileImage: (value.profileImage ?? "").trim(),
@@ -128,11 +141,14 @@ function validateProfile(profile: EditableTherapistProfile): string | null {
   if (profile.shortBio.length > 500) return "Short bio must be 500 characters or fewer.";
   if (profile.longBio.length > 5000) return "About you must be 5,000 characters or fewer.";
   if (profile.therapyApproach.length > 3000 || profile.firstSession.length > 3000 || profile.assessmentInfo.length > 3000 || profile.referralRequirements.length > 2000 || profile.accessibility.length > 2000 || profile.insurancePaymentInfo.length > 2000 || profile.whyIAmAnSlp.length > 3000) return "One of the profile detail sections is too long.";
+  if (profile.testimonials.some((item) => item.quote.length > 2000 || item.name.length > 200 || item.context.length > 300)) return "One of the testimonials is too long.";
+  if (profile.faqs.some((item) => item.question.length > 300 || item.answer.length > 3000)) return "One of the FAQ entries is too long.";
+  if (profile.resources.some((item) => item.title.length > 200 || item.description.length > 1000 || item.url.length > 1000)) return "One of the resource entries is too long.";
   if (profile.location.length > 200) return "Location must be 200 characters or fewer.";
   if (profile.timezone) {
     try { new Intl.DateTimeFormat("en-US", { timeZone: profile.timezone }).format(); } catch { return "Please provide a valid IANA timezone."; }
   }
-  if (profile.contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.contact.email)) return "Please provide a valid email address.";
+  if (profile.contact.email && !/^\S+@\S+\.\S+$/.test(profile.contact.email)) return "Please provide a valid email address.";
   return null;
 }
 
