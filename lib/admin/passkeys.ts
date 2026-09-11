@@ -8,7 +8,7 @@ import {
 } from "@simplewebauthn/server";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { getMongoDb } from "@/lib/db/mongodb";
-import { adminUsername, isAdminAuthenticated, requireAdminSession } from "@/lib/admin/auth";
+import { adminUsername, requireAdminSession } from "@/lib/admin/auth";
 
 const passkeyCollection = "admin_passkeys";
 const challengeCookieName = "grace_admin_passkey_challenge";
@@ -96,14 +96,6 @@ async function listPasskeys(): Promise<AdminPasskeyRecord[]> {
 async function getPasskeyByCredentialId(credentialId: string): Promise<AdminPasskeyRecord | null> {
   const db = await getMongoDb();
   return db.collection<AdminPasskeyRecord>(passkeyCollection).findOne({ credentialId, userId: passkeyUserId });
-}
-
-export async function hasAdminPasskeys(): Promise<boolean> {
-  try {
-    return (await getMongoDb()).collection<AdminPasskeyRecord>(passkeyCollection).countDocuments({ userId: passkeyUserId }) > 0;
-  } catch {
-    return false;
-  }
 }
 
 export async function beginAdminPasskeyRegistration(request: Request) {
@@ -197,7 +189,7 @@ export async function finishAdminPasskeyAuthentication(request: Request, respons
 }
 
 export async function getAdminPasskeyStatus(): Promise<{ enabled: boolean; count: number }> {
-  if (!(await isAdminAuthenticated())) return { enabled: false, count: 0 };
+  await requireAdminSession();
   try {
     const count = await (await getMongoDb()).collection<AdminPasskeyRecord>(passkeyCollection).countDocuments({ userId: passkeyUserId });
     return { enabled: count > 0, count };
