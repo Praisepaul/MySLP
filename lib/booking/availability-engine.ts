@@ -18,24 +18,11 @@ const dayOfWeekNames: DayOfWeek[] = [
     "saturday",
 ];
 
-function getDayOfWeek(
-    date: string,
-    timezone: string,
-): DayOfWeek {
+function getDayOfWeek(date: string, timezone: string): DayOfWeek {
     const formatter = new Intl.DateTimeFormat("en-US", {
         timeZone: timezone,
         weekday: "long",
     });
-
-    /*
-     * Noon UTC is not guaranteed to remain on the requested
-     * local calendar date in every timezone.
-     *
-     * Using a date-only representation with Intl is therefore
-     * avoided here. Instead, we derive the weekday from a
-     * UTC date and compensate using the timezone's local
-     * calendar components.
-     */
     const probe = new Date(`${date}T12:00:00.000Z`);
 
     if (Number.isNaN(probe.getTime())) {
@@ -63,76 +50,41 @@ function getDayOfWeek(
         ),
     );
 
-    /*
-     * If the probe crossed the requested local date, move the
-     * probe in the appropriate direction until its local date
-     * matches the requested date.
-     */
     const requestedDateValue = Date.UTC(
         Number(date.slice(0, 4)),
         Number(date.slice(5, 7)) - 1,
         Number(date.slice(8, 10)),
     );
 
-    const localDateValue = localDate.getTime();
-
     let adjustedProbe = probe;
-
-    if (localDateValue > requestedDateValue) {
-        adjustedProbe = new Date(
-            probe.getTime() - 24 * 60 * 60 * 1000,
-        );
-    } else if (localDateValue < requestedDateValue) {
-        adjustedProbe = new Date(
-            probe.getTime() + 24 * 60 * 60 * 1000,
-        );
+    if (localDate.getTime() > requestedDateValue) {
+        adjustedProbe = new Date(probe.getTime() - 24 * 60 * 60 * 1000);
+    } else if (localDate.getTime() < requestedDateValue) {
+        adjustedProbe = new Date(probe.getTime() + 24 * 60 * 60 * 1000);
     }
 
-    const weekday = formatter
-        .format(adjustedProbe)
-        .toLowerCase() as DayOfWeek;
-
+    const weekday = formatter.format(adjustedProbe).toLowerCase() as DayOfWeek;
     if (!dayOfWeekNames.includes(weekday)) {
-        throw new Error(
-            `Unable to determine day of week for ${date}.`,
-        );
+        throw new Error(`Unable to determine day of week for ${date}.`);
     }
 
     return weekday;
 }
 
-function parseTime(time: string): {
-    hours: number;
-    minutes: number;
-} {
+function parseTime(time: string): { hours: number; minutes: number } {
     const match = /^(\d{2}):(\d{2})$/.exec(time);
-
-    if (!match) {
-        throw new Error(`Invalid time format: ${time}.`);
-    }
+    if (!match) throw new Error(`Invalid time format: ${time}.`);
 
     const hours = Number(match[1]);
     const minutes = Number(match[2]);
-
-    if (
-        hours < 0 ||
-        hours > 23 ||
-        minutes < 0 ||
-        minutes > 59
-    ) {
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
         throw new Error(`Invalid time value: ${time}.`);
     }
 
-    return {
-        hours,
-        minutes,
-    };
+    return { hours, minutes };
 }
 
-function getTimezoneOffsetMilliseconds(
-    date: Date,
-    timezone: string,
-): number {
+function getTimezoneOffsetMilliseconds(date: Date, timezone: string): number {
     const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: timezone,
         year: "numeric",
@@ -162,13 +114,8 @@ function getTimezoneOffsetMilliseconds(
     return asUtc - date.getTime();
 }
 
-function zonedDateTimeToUtc(
-    date: string,
-    time: string,
-    timezone: string,
-): Date {
+function zonedDateTimeToUtc(date: string, time: string, timezone: string): Date {
     const { hours, minutes } = parseTime(time);
-
     const naiveUtc = new Date(
         Date.UTC(
             Number(date.slice(0, 4)),
@@ -181,27 +128,13 @@ function zonedDateTimeToUtc(
         ),
     );
 
-    const firstOffset = getTimezoneOffsetMilliseconds(
-        naiveUtc,
-        timezone,
-    );
+    const firstOffset = getTimezoneOffsetMilliseconds(naiveUtc, timezone);
+    const adjusted = new Date(naiveUtc.getTime() - firstOffset);
+    const secondOffset = getTimezoneOffsetMilliseconds(adjusted, timezone);
 
-    const adjusted = new Date(
-        naiveUtc.getTime() - firstOffset,
-    );
-
-    const secondOffset = getTimezoneOffsetMilliseconds(
-        adjusted,
-        timezone,
-    );
-
-    if (secondOffset !== firstOffset) {
-        return new Date(
-            naiveUtc.getTime() - secondOffset,
-        );
-    }
-
-    return adjusted;
+    return secondOffset !== firstOffset
+        ? new Date(naiveUtc.getTime() - secondOffset)
+        : adjusted;
 }
 
 function createBookingWindow(
@@ -210,17 +143,8 @@ function createBookingWindow(
     endTime: string,
     timezone: string,
 ): BookingWindow {
-    const start = zonedDateTimeToUtc(
-        date,
-        startTime,
-        timezone,
-    );
-
-    const end = zonedDateTimeToUtc(
-        date,
-        endTime,
-        timezone,
-    );
+    const start = zonedDateTimeToUtc(date, startTime, timezone);
+    const end = zonedDateTimeToUtc(date, endTime, timezone);
 
     if (start >= end) {
         throw new Error(
@@ -228,11 +152,7 @@ function createBookingWindow(
         );
     }
 
-    return {
-        start,
-        end,
-        timezone,
-    };
+    return { start, end, timezone };
 }
 
 function getRulesForDate(
@@ -241,21 +161,46 @@ function getRulesForDate(
     timezone: string,
 ): AvailabilityRule[] {
     const dayOfWeek = getDayOfWeek(date, timezone);
-
-    return rules.filter(
-        (rule) =>
-            rule.active &&
-            rule.dayOfWeek === dayOfWeek,
-    );
+    return rules.filter((rule) => rule.active && rule.dayOfWeek === dayOfWeek);
 }
 
 function getExceptionsForDate(
     exceptions: AvailabilityException[],
     date: string,
 ): AvailabilityException[] {
-    return exceptions.filter(
-        (exception) => exception.date === date,
-    );
+    return exceptions.filter((exception) => exception.date === date);
+}
+
+function subtractWindow(
+    window: BookingWindow,
+    blockedWindow: BookingWindow,
+): BookingWindow[] {
+    if (
+        blockedWindow.end <= window.start ||
+        blockedWindow.start >= window.end
+    ) {
+        return [window];
+    }
+
+    const result: BookingWindow[] = [];
+
+    if (window.start < blockedWindow.start) {
+        result.push({
+            start: window.start,
+            end: blockedWindow.start < window.end ? blockedWindow.start : window.end,
+            timezone: window.timezone,
+        });
+    }
+
+    if (blockedWindow.end < window.end) {
+        result.push({
+            start: blockedWindow.end > window.start ? blockedWindow.end : window.start,
+            end: window.end,
+            timezone: window.timezone,
+        });
+    }
+
+    return result.filter((candidate) => candidate.start < candidate.end);
 }
 
 function applyExceptions(
@@ -264,21 +209,31 @@ function applyExceptions(
     date: string,
     timezone: string,
 ): BookingWindow[] {
-    const dateExceptions = getExceptionsForDate(
-        exceptions,
-        date,
-    );
+    const dateExceptions = getExceptionsForDate(exceptions, date);
+    if (dateExceptions.length === 0) return windows;
 
-    if (dateExceptions.length === 0) {
-        return windows;
+    if (dateExceptions.some((exception) => exception.type === "unavailable")) {
+        return [];
     }
 
-    if (
-        dateExceptions.some(
-            (exception) => exception.type === "unavailable",
-        )
-    ) {
-        return [];
+    const blockedHours = dateExceptions.filter(
+        (exception) =>
+            exception.type === "unavailable-hours" &&
+            exception.startTime &&
+            exception.endTime,
+    );
+
+    let adjustedWindows = windows;
+    for (const exception of blockedHours) {
+        const blockedWindow = createBookingWindow(
+            date,
+            exception.startTime!,
+            exception.endTime!,
+            timezone,
+        );
+        adjustedWindows = adjustedWindows.flatMap((window) =>
+            subtractWindow(window, blockedWindow),
+        );
     }
 
     const customHours = dateExceptions.filter(
@@ -288,9 +243,7 @@ function applyExceptions(
             exception.endTime,
     );
 
-    if (customHours.length === 0) {
-        return windows;
-    }
+    if (customHours.length === 0) return adjustedWindows;
 
     return customHours.flatMap((exception) => {
         const customWindow = createBookingWindow(
@@ -300,55 +253,37 @@ function applyExceptions(
             timezone,
         );
 
-        return windows
+        return adjustedWindows
             .filter(
                 (window) =>
                     window.start < customWindow.end &&
                     window.end > customWindow.start,
             )
             .map((window) => ({
-                start:
-                    window.start > customWindow.start
-                        ? window.start
-                        : customWindow.start,
-                end:
-                    window.end < customWindow.end
-                        ? window.end
-                        : customWindow.end,
+                start: window.start > customWindow.start ? window.start : customWindow.start,
+                end: window.end < customWindow.end ? window.end : customWindow.end,
                 timezone: window.timezone,
             }));
     });
 }
 
-function sortAndMergeWindows(
-    windows: BookingWindow[],
-): BookingWindow[] {
+function sortAndMergeWindows(windows: BookingWindow[]): BookingWindow[] {
     const sorted = [...windows].sort(
-        (a, b) =>
-            a.start.getTime() - b.start.getTime(),
+        (a, b) => a.start.getTime() - b.start.getTime(),
     );
-
     const merged: BookingWindow[] = [];
 
     for (const window of sorted) {
         const previous = merged[merged.length - 1];
-
         if (!previous) {
             merged.push({ ...window });
             continue;
         }
 
-        if (
-            window.start.getTime() <=
-            previous.end.getTime()
-        ) {
-            if (
-                window.end.getTime() >
-                previous.end.getTime()
-            ) {
+        if (window.start.getTime() <= previous.end.getTime()) {
+            if (window.end.getTime() > previous.end.getTime()) {
                 previous.end = window.end;
             }
-
             continue;
         }
 
@@ -362,12 +297,7 @@ export function calculateAvailabilityWindows(
     request: SlotGenerationRequest,
     rules: AvailabilityRule[],
 ): BookingWindow[] {
-    const matchingRules = getRulesForDate(
-        rules,
-        request.date,
-        request.timezone,
-    );
-
+    const matchingRules = getRulesForDate(rules, request.date, request.timezone);
     const regularWindows = matchingRules.map((rule) =>
         createBookingWindow(
             request.date,
@@ -377,14 +307,12 @@ export function calculateAvailabilityWindows(
         ),
     );
 
-    const windowsWithExceptions = applyExceptions(
-        regularWindows,
-        request.exceptions,
-        request.date,
-        request.timezone,
-    );
-
     return sortAndMergeWindows(
-        windowsWithExceptions,
+        applyExceptions(
+            regularWindows,
+            request.exceptions,
+            request.date,
+            request.timezone,
+        ),
     );
 }
