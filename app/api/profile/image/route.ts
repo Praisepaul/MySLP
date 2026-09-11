@@ -25,5 +25,6 @@ export async function GET(request: Request) {
     start(controller) { stream.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk))); stream.once("end", () => controller.close()); stream.once("error", (error) => controller.error(error)); },
     cancel() { stream.destroy(); },
   });
-  return new NextResponse(webStream, { headers: { "Content-Type": file.contentType ?? "application/octet-stream", "Cache-Control": isDraft ? "private, no-store" : "public, max-age=3600, stale-while-revalidate=86400", "X-Content-Type-Options": "nosniff" } });
+  const contentType = typeof file.metadata?.contentType === "string" ? file.metadata.contentType : "application/octet-stream";
+  return new NextResponse(webStream, { headers: { "Content-Type": contentType, "Cache-Control": isDraft ? "private, no-store" : "public, max-age=3600, stale-while-revalidate=86400", "X-Content-Type-Options": "nosniff" } });
 }
