@@ -24,14 +24,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Your new password must be different from your current password." }, { status: 400 });
     }
 
-    await changeAdminPassword(body.currentPassword, body.newPassword);
+    const changed = await changeAdminPassword(body.currentPassword, body.newPassword);
+    if (!changed) return NextResponse.json({ error: "Your current password is incorrect." }, { status: 400 });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     const unauthorized = error instanceof Error && error.message === "Admin authentication is required.";
-    const invalidCurrentPassword = error instanceof Error && error.message === "Admin authentication is required.";
-    if (unauthorized || invalidCurrentPassword) {
-      return NextResponse.json({ error: "Your current password is incorrect." }, { status: 400 });
-    }
-    return NextResponse.json({ error: "We couldn't change the password right now. Please try again." }, { status: 500 });
+    const configuration = error instanceof Error && error.message === "Admin authentication is not configured.";
+    return NextResponse.json(
+      { error: configuration ? "Admin authentication is not configured." : unauthorized ? "Admin access is required." : "We couldn't change the password right now. Please try again." },
+      { status: configuration ? 503 : unauthorized ? 401 : 500 },
+    );
   }
 }
