@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,12 @@ export function ServicesManagerV2({ initialServices }: { initialServices: Servic
   const [showNewForm, setShowNewForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const newFormRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showNewForm) return;
+    requestAnimationFrame(() => newFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [showNewForm]);
 
   async function save(service: Service) {
     setBusy(true);
@@ -117,10 +123,12 @@ export function ServicesManagerV2({ initialServices }: { initialServices: Servic
         )}
       />
       {showNewForm && (
-        <Card>
-          <CardHeader><CardTitle>Add service</CardTitle></CardHeader>
-          <CardContent><ServiceForm key="new" onCancel={closeEditor} onSubmit={save} /></CardContent>
-        </Card>
+        <div ref={newFormRef} className="scroll-mt-24">
+          <Card>
+            <CardHeader><CardTitle>Add service</CardTitle></CardHeader>
+            <CardContent><ServiceForm key="new" onCancel={closeEditor} onSubmit={save} /></CardContent>
+          </Card>
+        </div>
       )}
     </>
   );
