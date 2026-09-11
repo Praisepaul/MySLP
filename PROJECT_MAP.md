@@ -112,7 +112,7 @@ Mongo collection: `cms_services`.
 Public service preview, booking selection, booking creation, and rescheduling now consume the persisted service repository rather than the static service array. Server-to-client service props are explicitly serialized so Mongo `_id` values never cross the Client Component boundary.
 
 ## Phase 4 — Availability management
-**Implemented persisted CMS.**
+**Implemented persisted CMS with improved therapist workflow.**
 
 Files:
 - `lib/cms/availability-repository.ts`
@@ -131,7 +131,13 @@ Files:
 
 Mongo collection: `cms_availability`.
 
-Weekly rules and date exceptions are persisted as one authoritative configuration document. Existing validation functions from `lib/config/availability.ts` remain the validation boundary. Saving configuration bumps the existing public availability revision.
+Weekly rules and date-specific exceptions are persisted as one authoritative configuration document. Existing validation functions from `lib/config/availability.ts` remain the validation boundary. Saving configuration bumps the existing public availability revision.
+
+The V2 therapist workflow keeps weekly availability as recurring day-of-week rules while making date-specific exceptions explicit in the UI. Exceptions are the date-aware layer: an `unavailable` exception blocks a particular date, while a `custom-hours` exception replaces normal hours for that date. This preserves the efficient recurring schedule without losing calendar-date control for holidays, leave, appointments or one-off changes.
+
+Weekly availability can now be added or edited for multiple weekdays sharing the same time window. The form expands that selection into the existing one-rule-per-day storage shape, so the booking engine and persisted data model remain compatible. Editing remains inline within the selected availability card. Availability actions now include Edit, Enable/Disable and Delete.
+
+The V2 manager also prevents accidental duplicate exact windows when a multi-day add/edit would collide with an existing day/time window.
 
 Public availability, appointment creation and appointment rescheduling now consume persisted availability configuration.
 
