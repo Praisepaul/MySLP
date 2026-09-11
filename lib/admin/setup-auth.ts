@@ -1,16 +1,12 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
-const setupCookieName = "grace_google_calendar_setup";
 const stateCookieName = "grace_google_calendar_oauth_state";
-const setupMaxAgeSeconds = 12 * 60 * 60;
 const stateMaxAgeSeconds = 10 * 60;
 
 function getSetupSecret(): string {
   const secret = process.env.GOOGLE_CALENDAR_SETUP_SECRET;
-  if (!secret) {
-    throw new Error("GOOGLE_CALENDAR_SETUP_SECRET is not configured.");
-  }
+  if (!secret) throw new Error("GOOGLE_CALENDAR_SETUP_SECRET is not configured.");
   return secret;
 }
 
@@ -25,7 +21,6 @@ function createSignedValue(value: string, issuedAt = Date.now()): string {
 
 function verifySignedValue(rawValue: string | undefined, maxAgeSeconds: number): string | null {
   if (!rawValue) return null;
-
   const parts = rawValue.split(".");
   if (parts.length !== 3) return null;
 
@@ -44,10 +39,6 @@ function verifySignedValue(rawValue: string | undefined, maxAgeSeconds: number):
   return value;
 }
 
-export function isSetupSecretConfigured(): boolean {
-  return Boolean(process.env.GOOGLE_CALENDAR_SETUP_SECRET);
-}
-
 export function isGoogleCalendarConfigured(): boolean {
   return Boolean(
     process.env.GOOGLE_CALENDAR_CLIENT_ID &&
@@ -55,33 +46,6 @@ export function isGoogleCalendarConfigured(): boolean {
       process.env.GOOGLE_CALENDAR_REDIRECT_URI &&
       process.env.GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY,
   );
-}
-
-export async function unlockGoogleCalendarSetup(secret: string): Promise<boolean> {
-  const configuredSecret = process.env.GOOGLE_CALENDAR_SETUP_SECRET;
-  if (!configuredSecret || !secret || secret !== configuredSecret) return false;
-
-  const cookieStore = await cookies();
-  cookieStore.set(setupCookieName, createSignedValue("unlocked"), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: setupMaxAgeSeconds,
-  });
-  return true;
-}
-
-export async function isGoogleCalendarSetupUnlocked(): Promise<boolean> {
-  if (!isSetupSecretConfigured()) return false;
-  const cookieStore = await cookies();
-  return Boolean(verifySignedValue(cookieStore.get(setupCookieName)?.value, setupMaxAgeSeconds));
-}
-
-export async function requireGoogleCalendarSetupAccess(): Promise<void> {
-  if (!(await isGoogleCalendarSetupUnlocked())) {
-    throw new Error("Google Calendar setup access is required.");
-  }
 }
 
 export async function createGoogleCalendarOAuthState(): Promise<string> {
