@@ -5,6 +5,8 @@ import { getMongoDb } from "@/lib/db/mongodb";
 const adminSessionCookieName = "grace_admin_session";
 const adminSessionMaxAgeSeconds = 8 * 60 * 60;
 const adminLoginRateLimitCollection = "admin_login_rate_limits";
+const adminCredentialsCollection = "admin_credentials";
+const adminCredentialsId = "admin";
 const maxLoginAttempts = 8;
 const loginWindowMs = 15 * 60 * 1000;
 const loginBlockMs = 15 * 60 * 1000;
@@ -15,6 +17,13 @@ type AdminLoginRateLimitRecord = {
   windowStartedAt: Date;
   blockedUntil?: Date;
   expiresAt: Date;
+};
+
+type AdminCredentialsRecord = {
+  _id: string;
+  username: string;
+  passwordHash: string;
+  updatedAt: Date;
 };
 
 export const adminUsername = process.env.GRACE_ADMIN_USERNAME?.trim().toLowerCase() || "gracevpaul";
@@ -33,10 +42,21 @@ export class AdminAuthenticationConfigurationError extends Error {
   }
 }
 
-function getPasswordHash(): string {
+function getEnvironmentPasswordHash(): string {
   const passwordHash = process.env.GRACE_ADMIN_PASSWORD_HASH?.trim();
   if (!passwordHash) throw new AdminAuthenticationConfigurationError();
   return passwordHash;
+}
+
+async function getActivePasswordHash(): Promise<string> {
+  try {
+    const db = await getMongoDb();
+    const stored = await db.collection<AdminCredentialsRecord>(adminCredentialsCollection).findOne({ _id: adminCredentialsId });
+    if (stored?.passwordHash) return stored.passwordHash;
+  } catch {
+    // The environment hash remains the bootstrap/fallback credential if Mongo is unavailable.
+  }
+  return getEnvironmentPasswordHash();
 }
 
 function getSessionSecret(): string {
@@ -57,15 +77,15 @@ function signSessionPayload(payload: string): string {
   return createHmac("sha256", getSessionSecret()).update(payload).digest("base64url");
 }
 
-function createSessionValue(username: string): string {
+async function createSessionValue(username: string): Promise<string> {
   const issuedAt = Date.now();
-  const version = credentialVersion(getPasswordHash());
+  const version = credentialVersion(await getActivePasswordHash());
   const nonce = randomBytes(24).toString("base64url");
   const payload = `${issuedAt}.${username}.${version}.${nonce}`;
   return `${payload}.${signSessionPayload(payload)}`;
 }
 
-function verifySessionValue(rawValue: string | undefined): boolean {
+async function verifySessionValue(rawValue: string | undefined): Promise<boolean> {
   if (!rawValue) return false;
 
   try {
@@ -77,7 +97,9 @@ function verifySessionValue(rawValue: string | undefined): boolean {
     if (Date.now() - issuedAt > adminSessionMaxAgeSeconds * 1000) return false;
     if (issuedAt > Date.now() + 60_000) return false;
     if (username !== adminUsername) return false;
-    if (version !== credentialVersion(getPasswordHash())) return false;
+
+    const activePasswordHash = await getActivePasswordHash();
+    if (version !== credentialVersion(activePasswordHash)) return false;
 
     const expected = signSessionPayload(`${issuedAtRaw}.${username}.${version}.${nonce}`);
     const actualBuffer = Buffer.from(signature);
@@ -110,8 +132,8 @@ function parsePasswordHash(encoded: string): { n: number; r: number; p: number; 
   }
 }
 
-function verifyPassword(password: string): boolean {
-  const parsed = parsePasswordHash(getPasswordHash());
+function verifyPasswordAgainstHash(password: string, encodedHash: string): boolean {
+  const parsed = parsePasswordHash(encodedHash);
   if (!parsed || parsed.salt.length < 8 || parsed.hash.length < 32) return false;
   try {
     const actual = scryptSync(password, parsed.salt, parsed.hash.length, {
@@ -124,6 +146,31 @@ function verifyPassword(password: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function hashAdminPassword(password: string): string {
+  const salt = randomBytes(16);
+  const hash = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+  return `scrypt$16384$8$1$${salt.toString("base64url")}$${hash.toString("base64url")}`;
+}
+
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  return verifyPasswordAgainstHash(password, await getActivePasswordHash());
+}
+
+export async function changeAdminPassword(currentPassword: string, newPassword: string): Promise<void> {
+  const activePasswordHash = await getActivePasswordHash();
+  if (!verifyPasswordAgainstHash(currentPassword, activePasswordHash)) {
+    throw new AdminAuthenticationError();
+  }
+
+  const passwordHash = hashAdminPassword(newPassword);
+  const db = await getMongoDb();
+  await db.collection<AdminCredentialsRecord>(adminCredentialsCollection).updateOne(
+    { _id: adminCredentialsId },
+    { $set: { username: adminUsername, passwordHash, updatedAt: new Date() } },
+    { upsert: true },
+  );
 }
 
 function getClientAddress(request: Request): string {
@@ -214,12 +261,12 @@ export async function loginAdmin(username: string, password: string, request: Re
   const key = getRateLimitKey(normalizedUsername || "unknown", request);
   if (await isLoginBlocked(key)) return "rate_limited";
 
-  const valid = normalizedUsername === adminUsername && verifyPassword(password);
+  const valid = normalizedUsername === adminUsername && await verifyAdminPassword(password);
   if (!valid) return (await recordFailedLogin(key)) ? "rate_limited" : "invalid";
 
   await clearFailedLogins(key);
   const cookieStore = await cookies();
-  cookieStore.set(adminSessionCookieName, createSessionValue(adminUsername), {
+  cookieStore.set(adminSessionCookieName, await createSessionValue(adminUsername), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
