@@ -128,9 +128,9 @@ Files include `components/admin/availability/availability-manager-v2.tsx` and th
 **Complete and end-to-end validated.** Deterministic event projection, update/delete, Google Meet, attendee notifications and public rescheduling are implemented.
 
 ## Phase 11 — Admin appointment management + therapist calendar
-**Active.** Implemented list/search/status/date filters, details in list, Meet, Calendar sync state, completed/no-show/cancel, realtime revision sync and manual Refresh. The `/admin/calendar` tab now includes a responsive week timeline on laptop/desktop and a chronological day-grouped schedule on smaller screens. It combines Grace Sessions appointments with Google Calendar events and uses a selected-week fetch rather than continuous Google polling. `getGoogleCalendarEvents()` exposes event details while the existing cached busy/free architecture remains intact.
+**Active.** Implemented list/search/status/date filters, details in list, Meet, Calendar sync state, completed/no-show/cancel, realtime revision sync and manual Refresh. The `/admin/calendar` tab now includes a compact responsive week timeline: desktop/laptop uses smaller rows, compresses empty time gaps between event clusters, and keeps the schedule in an internal scroll region; mobile uses compact chronological day cards inside an internal scroll region. It combines Grace Sessions appointments with Google Calendar events and uses a selected-week fetch rather than continuous Google polling. `getGoogleCalendarEvents()` exposes event details while the existing cached busy/free architecture remains intact.
 
-Remaining: richer operational controls/retry, native admin availability-picker rescheduling UI, manual admin creation UI, true admin authentication, and further calendar polish such as deeper availability-window visualization.
+Remaining: richer operational controls/retry, native admin availability-picker rescheduling UI, manual admin creation UI, true admin authentication, and deeper availability-window visualization.
 
 ## Phase 12 — Profile CMS
 **Implemented initial persisted CMS + UI polish.** Mongo document: `site_settings`, `_id = therapist-profile`. Profile timezone now uses the shared searchable IANA timezone control. Profile image is currently an external direct-image URL; the public hero safely falls back if the supplied URL is not a loadable image.
