@@ -26,6 +26,7 @@ PUBLIC
   /book                     persisted services + booking engine
   /appointment/[token]      appointment management
   /appointment/[token]/reschedule
+  /api/profile/image        public therapist profile image stream
 
 ADMIN
   /admin
@@ -43,10 +44,13 @@ CMS
   lib/cms/site-settings-repository.ts
   lib/cms/services-repository.ts
   lib/cms/availability-repository.ts
-  components/admin/profile/profile-form.tsx — profile editor + live public-profile preview
+  components/admin/profile/profile-form.tsx — profile editor + live public-profile preview + photo upload
+  app/api/admin/profile/image/route.ts — authenticated GridFS profile photo upload/removal
+  app/api/profile/image/route.ts — public GridFS profile photo delivery
   MongoDB: site_settings
   MongoDB: cms_services
   MongoDB: cms_availability
+  MongoDB GridFS bucket: profile_media
 
 BOOKING
   lib/booking/slot-types.ts
@@ -84,6 +88,7 @@ MONGO COLLECTIONS
   site_settings
   cms_services
   cms_availability
+  profile_media.files / profile_media.chunks (MongoDB GridFS)
 ```
 
 # Phase status
@@ -137,7 +142,7 @@ Admin scheduling reuses `createAppointment()` / `rescheduleAppointment()`, the e
 The temporary setup access gate remains in place. True admin authentication belongs to Phase 16.
 
 ## Phase 12 — Profile CMS
-**Complete.** Mongo document: `site_settings`, `_id = therapist-profile`. The admin editor persists therapist identity, professional information, bios, credentials, languages, practice location, timezone, session types, contact details and social links. It now includes character guidance, direct-image URL guidance, a live public-profile preview, and a one-click link to open the public profile. Profile timezone uses the shared searchable IANA timezone control. Profile image remains an external direct-image URL for now; the public hero safely falls back if the supplied URL is not a loadable image. No storage-provider dependency was introduced.
+**Complete.** Mongo document: `site_settings`, `_id = therapist-profile`. The admin editor persists therapist identity, professional information, bios, credentials, languages, practice location, timezone, session types, contact details and social links. It includes character guidance, a live public-profile preview, a one-click public-profile link, and direct therapist photo upload/removal. Uploaded profile photos are stored in MongoDB GridFS under the `profile_media` bucket and exposed through `/api/profile/image`; no third-party storage dependency is required. The external direct-image URL option remains available for compatibility. Profile timezone uses the shared searchable IANA timezone control.
 
 ## Phase 13 — Booking settings CMS
 **Implemented initial persisted CMS + runtime enforcement.** Mongo document: `site_settings`, `_id = booking-settings`.
@@ -177,4 +182,5 @@ The temporary setup access gate remains in place. True admin authentication belo
 11. CMS writes affecting availability bump the existing `availability_revisions` singleton.
 12. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
 13. Do not create `-v2`, `-v3`, `-new` or similar versioned filenames for replacement UI implementations; preserve the canonical file architecture.
-14. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
+14. Profile photos use MongoDB GridFS (`profile_media`) unless a deliberate storage-provider decision is made later.
+15. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
