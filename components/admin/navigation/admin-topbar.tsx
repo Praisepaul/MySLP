@@ -1,5 +1,6 @@
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminAccountMenu } from "@/components/admin/account/admin-account-menu";
 
 interface AdminTopbarProps {
   onMenuClick?: () => void;
@@ -28,25 +29,7 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium">Therapist</p>
-          <p className="text-xs text-muted-foreground">Administrator</p>
-        </div>
-
-        <div
-          className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-semibold"
-          aria-hidden="true"
-        >
-          T
-        </div>
-
-        <form action="/api/admin/auth/logout" method="post">
-          <Button type="submit" variant="outline" size="sm">
-            Log out
-          </Button>
-        </form>
-      </div>
+      <AdminAccountMenu />
     </header>
   );
 }
