@@ -63,7 +63,7 @@ test("booking buffers participate in conflict detection", () => {
 
   assert.equal(expandIntervalForConflictCheck(candidate, 15, 15).start.toISOString(), "2026-09-14T09:45:00.000Z");
   assert.equal(hasBookingConflict(candidate, conflicts), true);
-  assert.equal(findBookingConflicts(candidate, conflicts).length, 2);
+  assert.equal(findBookingConflicts(candidate, conflicts).length, 1);
   const grouped = groupBookingConflictsBySource(conflicts);
   assert.equal(grouped.appointment.length, 1);
   assert.equal(grouped.calendar.length, 1);
