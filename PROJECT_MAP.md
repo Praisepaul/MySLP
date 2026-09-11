@@ -15,6 +15,8 @@
 - Reuse existing booking, conflict, lock, appointment and calendar services; do not create parallel scheduling logic.
 - Time display uses 24-hour `HH:mm` conventions throughout the user/admin scheduling surfaces.
 - Timezone selection uses the reusable `components/ui/timezone-select.tsx` component and the runtime IANA timezone list rather than a hardcoded application list.
+- Profile CMS fields are optional: the therapist can save/update with any or all profile content blank.
+- Public profile presentation is scaffold-driven: CMS content automatically appears in appropriate sections/cards/tags, and empty sections are hidden. The therapist does not need to design page layouts.
 
 ## Technology
 Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoDB driver/Atlas, Google Calendar API/OAuth, Google Meet via Calendar conferenceData.
@@ -22,7 +24,7 @@ Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoD
 ## Architecture
 ```text
 PUBLIC
-  /                         persisted therapist profile + services preview
+  /                         persisted therapist profile + automatic profile details + services preview
   /book                     persisted services + booking engine
   /appointment/[token]      appointment management
   /appointment/[token]/reschedule
@@ -44,7 +46,8 @@ CMS
   lib/cms/site-settings-repository.ts
   lib/cms/services-repository.ts
   lib/cms/availability-repository.ts
-  components/admin/profile/profile-form.tsx — profile editor + live public-profile preview + photo upload
+  components/admin/profile/profile-form.tsx — optional profile editor + tag inputs + live preview + photo upload
+  components/public/profile/profile-details.tsx — automatic public presentation of optional profile details
   app/api/admin/profile/image/route.ts — authenticated GridFS profile photo upload/removal
   app/api/profile/image/route.ts — public GridFS profile photo delivery
   MongoDB: site_settings
@@ -100,7 +103,7 @@ MONGO COLLECTIONS
 **Complete.** Current CMS/admin button placement and layout are intentionally preserved while functionality is connected.
 
 ## Phase 2 — Public therapist profile
-**Complete + CMS connected.** Public homepage loads `getTherapistProfile()` from `lib/cms/site-settings-repository.ts`, with the original config retained as a safe default.
+**Complete + CMS connected.** Public homepage loads `getTherapistProfile()` from `lib/cms/site-settings-repository.ts`, with the original config retained as a safe default. Profile details now render through a reusable scaffold so CMS content controls presentation rather than page composition.
 
 ## Phase 3 — Services CMS
 **Implemented persisted CMS.**
@@ -142,7 +145,11 @@ Admin scheduling reuses `createAppointment()` / `rescheduleAppointment()`, the e
 The temporary setup access gate remains in place. True admin authentication belongs to Phase 16.
 
 ## Phase 12 — Profile CMS
-**Complete.** Mongo document: `site_settings`, `_id = therapist-profile`. The admin editor persists therapist identity, professional information, bios, credentials, languages, practice location, timezone, session types, contact details and social links. It includes character guidance, a live public-profile preview, a one-click public-profile link, and direct therapist photo upload/removal. Uploaded profile photos are stored in MongoDB GridFS under the `profile_media` bucket and exposed through `/api/profile/image`; no third-party storage dependency is required. The external direct-image URL option remains available for compatibility. Profile timezone uses the shared searchable IANA timezone control.
+**Expanded and complete.** Mongo document: `site_settings`, `_id = therapist-profile`. The admin editor now covers optional identity, bios, credentials, education/qualifications, professional memberships, specialties/areas of expertise, age groups, populations/who the therapist supports, languages, therapy approach, first-session expectations, assessment/evaluation information, referral requirements, accessibility, insurance/payment information, location/service area, timezone, session types, contact details, social links and a personal “why I became an SLP” note. No profile field is required to save or update the CMS document; validation only protects content quality such as length, email syntax and valid IANA timezone values when supplied.
+
+List-style profile content uses reusable tag inputs: Enter or comma adds an item, duplicates are avoided, and items can be removed individually. On the public site, specialties, age groups, populations and languages become polished pills; education/memberships become clean lists; clinical/practical information becomes responsive cards; and the personal story becomes a dedicated personal-note section. Empty content automatically hides its section. `components/public/profile/profile-details.tsx` owns this presentation scaffold, so the therapist only supplies content and never has to think about page design.
+
+The editor retains the live public-profile preview and one-click public-profile link. Direct therapist photo upload/removal remains available. Uploaded profile photos are stored in MongoDB GridFS under the `profile_media` bucket and exposed through `/api/profile/image`; no third-party storage dependency is required. The external direct-image URL option remains available for compatibility. Profile timezone uses the shared searchable IANA timezone control.
 
 ## Phase 13 — Booking settings CMS
 **Implemented initial persisted CMS + runtime enforcement.** Mongo document: `site_settings`, `_id = booking-settings`.
@@ -180,7 +187,8 @@ The temporary setup access gate remains in place. True admin authentication belo
 9. Google external conflicts belong in `google_calendar_discovered_conflicts`.
 10. Never poll Google Calendar from the public revision loop.
 11. CMS writes affecting availability bump the existing `availability_revisions` singleton.
-12. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
-13. Do not create `-v2`, `-v3`, `-new` or similar versioned filenames for replacement UI implementations; preserve the canonical file architecture.
-14. Profile photos use MongoDB GridFS (`profile_media`) unless a deliberate storage-provider decision is made later.
-15. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
+12. Profile content is optional and presentation is scaffold-driven; empty sections must not leave awkward blank blocks on the public page.
+13. Do not add cron/Redis/Kafka/microservices unless explicitly requested.
+14. Do not create `-v2`, `-v3`, `-new` or similar versioned filenames for replacement UI implementations; preserve the canonical file architecture.
+15. Profile photos use MongoDB GridFS (`profile_media`) unless a deliberate storage-provider decision is made later.
+16. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle tests locally.
