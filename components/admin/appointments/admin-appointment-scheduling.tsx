@@ -68,8 +68,10 @@ export function AdminAppointmentScheduling({ target, onClose, onSaved }: Props) 
 
   useEffect(() => {
     let cancelled = false;
-    async function loadAvailability() {
+    void (async () => {
       if (!serviceId || !timezone) return;
+      await Promise.resolve();
+      setLoading(true);
       const nextDates = getUpcomingDates(timezone, dateOffset, 14);
       try {
         const response = await fetch("/api/availability", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", body: JSON.stringify({ serviceId, timezone, dates: nextDates }) });
@@ -90,9 +92,7 @@ export function AdminAppointmentScheduling({ target, onClose, onSaved }: Props) 
         setDates(nextDates);
         setSlotsByDate(Object.fromEntries(nextDates.map((date) => [date, []])));
       }
-    }
-    setLoading(true);
-    void loadAvailability();
+    })();
     return () => { cancelled = true; };
   }, [dateOffset, serviceId, timezone]);
 
