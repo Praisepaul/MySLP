@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GridFSBucket, type GridFSFile } from "mongodb";
+import { GridFSBucket } from "mongodb";
 import { requireGoogleCalendarSetupAccess } from "@/lib/admin/setup-auth";
 import { getMongoDb } from "@/lib/db/mongodb";
 import { getTherapistProfile, saveTherapistProfile } from "@/lib/cms/site-settings-repository";
@@ -62,5 +62,3 @@ export async function DELETE() {
     return NextResponse.json({ error: unauthorized ? "Admin access is required." : "We couldn't remove the profile image." }, { status: unauthorized ? 401 : 500 });
   }
 }
-
-void (undefined as unknown as GridFSFile);
