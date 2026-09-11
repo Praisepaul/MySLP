@@ -21,9 +21,10 @@
 - Patient notifications are intentionally handled by Google Calendar/Google Meet; no separate notification provider.
 - **Public and admin applications are isolated.** Public pages never depend on an admin session. Every admin page is protected by the admin route layout, and every admin API performs its own server-side admin-session check.
 - There is no public registration or profile-creation flow for the therapist account.
+- Passkeys are an admin-only authentication capability; patients never interact with the admin WebAuthn flow.
 
 ## Technology
-Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoDB driver/Atlas, Google Calendar API/OAuth, Google Meet via Calendar conferenceData.
+Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui, MongoDB driver/Atlas, Google Calendar API/OAuth, Google Meet via Calendar conferenceData, SimpleWebAuthn for WebAuthn/passkeys.
 
 ## Architecture
 ```text
@@ -53,15 +54,31 @@ AUTHENTICATION
     requireAdminSession()
     loginAdmin()
     logoutAdmin()
+    establishAdminSession()
     AdminAuthenticationError
     AdminAuthenticationConfigurationError
-  components/admin/auth/admin-login-form.tsx
+  lib/admin/passkeys.ts
+    beginAdminPasskeyRegistration()
+    finishAdminPasskeyRegistration()
+    beginAdminPasskeyAuthentication()
+    finishAdminPasskeyAuthentication()
+    getAdminPasskeyStatus()
+  components/admin/auth/admin-login-form.tsx — password + passkey sign-in
+  components/admin/account/admin-account-menu.tsx — password change + passkey enrollment
   app/admin-login/page.tsx
   app/api/admin/auth/login/route.ts
   app/api/admin/auth/logout/route.ts
+  app/api/admin/auth/passkey/register/options/route.ts
+  app/api/admin/auth/passkey/register/verify/route.ts
+  app/api/admin/auth/passkey/login/options/route.ts
+  app/api/admin/auth/passkey/login/verify/route.ts
+  app/api/admin/auth/passkey/status/route.ts
   app/admin/layout.tsx — server-side protection for the complete `/admin/*` route tree
   MongoDB: `admin_login_rate_limits` — short-lived failed-login rate-limit records
+  MongoDB: `admin_credentials` — active therapist/admin password hash
+  MongoDB: `admin_passkeys` — registered WebAuthn public credentials and counters
   Session: signed HttpOnly `grace_admin_session`, 8-hour lifetime, `SameSite=Lax`, credential-version bound
+  Passkey challenge: short-lived signed HttpOnly `grace_admin_passkey_challenge` cookie; no separate paid service
 
 GOOGLE AUTHENTICATION
   lib/admin/setup-auth.ts — Google Calendar OAuth configuration + short-lived OAuth state only
@@ -157,6 +174,8 @@ MONGO COLLECTIONS
   availability_revisions
   appointment_revisions
   admin_login_rate_limits
+  admin_credentials
+  admin_passkeys
   site_settings
   cms_services
   cms_availability
@@ -175,6 +194,10 @@ MONGO COLLECTIONS
 10. Failed password attempts use short-lived Mongo-backed rate-limit records; raw client IP addresses are not stored.
 11. Google Calendar OAuth state uses a separate `GOOGLE_CALENDAR_OAUTH_STATE_SECRET` and remains independent from therapist authentication.
 12. The old Google Calendar setup-key endpoint is removed; Google Calendar operations now use the authenticated therapist session.
+13. Passkey enrollment requires an existing admin session.
+14. Passkey authentication uses WebAuthn user verification and a signed, five-minute challenge cookie.
+15. Passkey private keys never reach the application or MongoDB; only the public credential key, credential ID and authenticator counter are stored.
+16. Password authentication remains available as the recovery path; passkeys do not remove the existing password mechanism.
 
 ## Phase status
 
@@ -233,7 +256,7 @@ MONGO COLLECTIONS
 **Removed.** Google Calendar/Meet notifications are sufficient for the current product.
 
 ### Phase 16 — Security/privacy
-**In progress — 16A implemented.**
+**In progress — 16A and 16B implemented on the passkey branch.**
 
 #### Phase 16A — Admin identity & public/private isolation
 **Implemented.**
@@ -251,7 +274,16 @@ MONGO COLLECTIONS
 - Draft profile media and preview remain private.
 
 #### Phase 16B — Passkeys / WebAuthn
-**Next.** Add passkey enrollment and sign-in as the preferred second factor/passwordless convenience, while retaining password recovery. Use a maintained WebAuthn implementation rather than hand-rolling cryptographic verification.
+**Implemented on branch `phase-16b-passkeys`; pending local validation and merge to `main`.**
+- Maintained SimpleWebAuthn browser/server libraries added; no paid authentication provider.
+- Existing password login remains available as recovery/fallback.
+- Authenticated therapist can enroll one or more passkeys from the existing account menu.
+- Passkey sign-in is available directly on `/admin-login`.
+- MongoDB `admin_passkeys` stores credential ID, public key, counter, transports and timestamps only.
+- Registration and authentication challenges use the existing `GRACE_ADMIN_SESSION_SECRET` to create short-lived signed HttpOnly challenge cookies; no new secret is required.
+- WebAuthn user verification is required for registration and authentication.
+- Relying-party ID/origin are derived from the current request host; no new deployment service is required.
+- Private key material stays on the user's authenticator and is never stored by the application.
 
 #### Phase 16C — Broader security/privacy audit
 **Planned.** Input validation review, token/PII exposure, error redaction, abuse protection, session lifecycle, Google OAuth security, privacy review and production secret audit.
@@ -260,7 +292,7 @@ MONGO COLLECTIONS
 **Planned.** Mobile/tablet/desktop, keyboard/focus, semantics, contrast, forms, dialogs, calendar and touch targets.
 
 ### Phase 18 — Automated testing
-**Planned.** Booking/DST/concurrency/lifecycle/Google/API regression suite, including admin authentication and public/private isolation tests.
+**Planned.** Booking/DST/concurrency/lifecycle/Google/API regression suite, including admin authentication, passkey/WebAuthn flows and public/private isolation tests.
 
 ### Phase 19 — Production deployment
 **Planned.** Vercel + MongoDB Atlas + Google Cloud OAuth, production secrets/configuration, smoke tests, monitoring and recovery.
@@ -281,6 +313,8 @@ Google Calendar configuration:
 - `GOOGLE_CALENDAR_THERAPIST_EMAIL`
 - `GOOGLE_CALENDAR_OAUTH_STATE_SECRET`
 - `GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY`
+
+Passkeys require no additional paid provider or environment secret.
 
 Never commit plaintext passwords, OAuth secrets, refresh tokens, or production session secrets.
 
@@ -307,4 +341,5 @@ Never commit plaintext passwords, OAuth secrets, refresh tokens, or production s
 20. Admin authentication is independent from Google Calendar authentication.
 21. Every admin API must enforce server-side admin authentication even when its caller is already behind the protected admin UI.
 22. Public routes must never gain a dependency on admin authentication.
-23. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle/security tests locally.
+23. Passkey credentials belong only to the pre-created admin account and are stored in MongoDB; do not introduce a separate user/account architecture.
+24. Before production-ready claims, run `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` and relevant lifecycle/security tests locally.
