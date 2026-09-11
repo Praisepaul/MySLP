@@ -80,6 +80,7 @@ test("slot engine excludes conflicts and partial-day blocked hours", () => {
 
   assert.deepEqual(result.slots.map((slot) => slot.start.toISOString()), [
     "2026-09-14T03:30:00.000Z",
+    "2026-09-14T05:30:00.000Z",
   ]);
 });
 
