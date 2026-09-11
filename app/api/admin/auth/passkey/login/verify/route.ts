@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null) as AuthenticationResponseJSON | null;
     if (!body?.id || !body?.response) return NextResponse.json({ error: "Invalid passkey response." }, { status: 400 });
-    const verified = await finishAdminPasskeyAuthentication(body);
+    const verified = await finishAdminPasskeyAuthentication(request, body);
     if (!verified) return NextResponse.json({ error: "That passkey is not registered for this therapist account." }, { status: 401 });
     await establishAdminSession();
     return NextResponse.json({ ok: true });
