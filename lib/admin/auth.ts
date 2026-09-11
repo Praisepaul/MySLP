@@ -38,7 +38,7 @@ function getSessionSecret(): string {
 }
 
 export function isAdminAuthConfigured(): boolean {
-  return Boolean(process.env.GRACE_ADMIN_PASSWORD_HASH && process.env.GRACE_ADMIN_SESSION_SECRET && adminUsername);
+  return Boolean(process.env.GRACE_ADMIN_PASSWORD_HASH && process.env.GRACE_ADMIN_SESSION_SECRET?.length && process.env.GRACE_ADMIN_SESSION_SECRET.length >= 32 && adminUsername);
 }
 
 function credentialVersion(passwordHash: string): string {
@@ -152,39 +152,23 @@ async function recordFailedLogin(key: string): Promise<boolean> {
   try {
     await ensureRateLimitIndex();
     const db = await getMongoDb();
-    const collection = db.collection<{
-      _id: string;
-      attempts: number;
-      windowStartedAt: Date;
-      blockedUntil?: Date;
-      expiresAt: Date;
-    }>(adminLoginRateLimitCollection);
+    const collection = db.collection<{ _id: string; attempts: number; windowStartedAt: Date; blockedUntil?: Date; expiresAt: Date }>(adminLoginRateLimitCollection);
     const now = new Date();
     const existing = await collection.findOne({ _id: key });
 
     if (!existing || existing.windowStartedAt.getTime() <= now.getTime() - loginWindowMs) {
-      await collection.updateOne(
-        { _id: key },
-        { $set: { attempts: 1, windowStartedAt: now, expiresAt: new Date(now.getTime() + loginWindowMs) } },
-        { upsert: true },
-      );
+      await collection.updateOne({ _id: key }, { $set: { attempts: 1, windowStartedAt: now, expiresAt: new Date(now.getTime() + loginWindowMs) } }, { upsert: true });
       return false;
     }
 
     const attempts = existing.attempts + 1;
     if (attempts >= maxLoginAttempts) {
       const blockedUntil = new Date(now.getTime() + loginBlockMs);
-      await collection.updateOne(
-        { _id: key },
-        { $set: { attempts, blockedUntil, expiresAt: blockedUntil } },
-      );
+      await collection.updateOne({ _id: key }, { $set: { attempts, blockedUntil, expiresAt: blockedUntil } });
       return true;
     }
 
-    await collection.updateOne(
-      { _id: key },
-      { $set: { attempts, expiresAt: new Date(existing.windowStartedAt.getTime() + loginWindowMs) } },
-    );
+    await collection.updateOne({ _id: key }, { $set: { attempts, expiresAt: new Date(existing.windowStartedAt.getTime() + loginWindowMs) } });
     return false;
   } catch {
     return false;
@@ -223,9 +207,7 @@ export async function loginAdmin(username: string, password: string, request: Re
   if (await isLoginBlocked(key)) return "rate_limited";
 
   const valid = normalizedUsername === adminUsername && verifyPassword(password);
-  if (!valid) {
-    return (await recordFailedLogin(key)) ? "rate_limited" : "invalid";
-  }
+  if (!valid) return (await recordFailedLogin(key)) ? "rate_limited" : "invalid";
 
   await clearFailedLogins(key);
   const cookieStore = await cookies();
