@@ -3,6 +3,7 @@ import { ArrowRight, Globe2 } from "lucide-react";
 import type { EditableTherapistProfile } from "@/lib/cms/site-settings-repository";
 
 function isLikelyImageUrl(value: string) {
+  if (value.startsWith("/api/profile/image")) return true;
   try {
     const url = new URL(value);
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
@@ -28,7 +29,7 @@ export function ProfileHero({ therapistProfile }: { therapistProfile: EditableTh
           <div className="mt-8 flex flex-col gap-3 sm:flex-row"><Link href="/#book" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Book a session<ArrowRight aria-hidden="true" className="size-4" /></Link><Link href="#about" className="inline-flex h-11 items-center justify-center rounded-lg border bg-background px-5 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Learn more</Link></div>
           {therapistProfile.credentials.length > 0 && <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground" aria-label="Professional credentials">{therapistProfile.credentials.map((credential) => <li key={credential}>{credential}</li>)}</ul>}
         </div>
-        <div className="mx-auto w-full max-w-md lg:justify-self-end"><div className="relative aspect-[4/5] overflow-hidden rounded-3xl border bg-muted shadow-sm" role={showImage ? "img" : undefined} aria-label={showImage ? (therapistProfile.name ? `${therapistProfile.name}, ${therapistProfile.professionalTitle}` : "Therapist profile") : undefined} style={showImage ? { backgroundImage: `url("${imageUrl.replace(/"/g, '%22')}")`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}>{!showImage&&<div className="flex h-full items-center justify-center p-8 text-center"><div><div className="mx-auto flex size-20 items-center justify-center rounded-full bg-background text-2xl font-semibold shadow-sm">G</div><p className="mt-5 text-sm font-medium">Your professional photo</p><p className="mt-2 text-sm leading-6 text-muted-foreground">Add a direct image address from the therapist profile page.</p></div></div>}</div></div>
+        <div className="mx-auto w-full max-w-md lg:justify-self-end"><div className="relative aspect-[4/5] overflow-hidden rounded-3xl border bg-muted shadow-sm" role={showImage ? "img" : undefined} aria-label={showImage ? (therapistProfile.name ? `${therapistProfile.name}, ${therapistProfile.professionalTitle}` : "Therapist profile") : undefined} style={showImage ? { backgroundImage: `url("${imageUrl.replace(/"/g, '%22')}")`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}>{!showImage&&<div className="flex h-full items-center justify-center p-8 text-center"><div><div className="mx-auto flex size-20 items-center justify-center rounded-full bg-background text-2xl font-semibold shadow-sm">G</div><p className="mt-5 text-sm font-medium">Your professional photo</p><p className="mt-2 text-sm leading-6 text-muted-foreground">Upload a professional photo from the therapist profile editor.</p></div></div>}</div></div>
       </div>
     </section>
   );
