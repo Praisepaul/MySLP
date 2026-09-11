@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { AdminLoginForm } from "@/components/admin/auth/admin-login-form";
 import { isAdminAuthConfigured, isAdminAuthenticated } from "@/lib/admin/auth";
+
+export const metadata: Metadata = {
+  title: "Therapist login",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 
