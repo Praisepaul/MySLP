@@ -103,6 +103,15 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - Public availability checks are Mongo-only about every 3 seconds while visible.
 - Appointment/admin refreshes use Mongo revisions rather than repeated Google API polling.
 
+## MongoDB connection architecture
+### `lib/db/mongodb.ts`
+- `getMongoClient()` is the single application MongoDB client boundary.
+- `getMongoDb()` returns the configured application database from that shared client.
+- The runtime lazily creates and caches one `MongoClient` per warm execution context instead of caching a module-level connection promise before connection succeeds.
+- A failed initial connection promise is removed from the warm global cache after the client is closed, allowing the next request to establish a fresh client instead of inheriting a permanently rejected promise.
+- Serverless-oriented driver settings use `maxPoolSize: 10`, `maxIdleTimeMS: 60000`, `serverSelectionTimeoutMS: 15000`, `connectTimeoutMS: 10000`, retryable reads/writes, and Atlas overload retargeting/adaptive retries. These settings are intended to reduce stale sockets and connection pressure while giving Atlas replica-set elections/failovers time to recover.
+- No application-level retry loop or extra Mongo polling is added to repositories. MongoDB driver's connection monitoring and retry behavior remain the recovery mechanism so the existing 3-second public availability revision loop stays unchanged.
+
 ## Mongo collections
 `appointments`, `appointment_booking_locks`, `google_calendar_connections`, `google_calendar_busy_cache`, `google_calendar_discovered_conflicts`, `availability_revisions`, `appointment_revisions`, `admin_login_rate_limits`, `admin_credentials`, `admin_passkeys`, `admin_passkey_challenges`, `site_settings`, `cms_services`, `cms_availability`, `profile_media.files`, `profile_media.chunks`.
 
