@@ -59,23 +59,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const nextTheme = readStoredTheme();
-    setThemeState(nextTheme);
-    applyTheme(nextTheme);
+    setThemeState(readStoredTheme());
+  }, []);
 
-    if (nextTheme !== "system") return;
+  useEffect(() => {
+    applyTheme(theme);
+
+    if (theme !== "system") return;
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => applyTheme("system");
     mediaQuery.addEventListener("change", handleChange);
 
     return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
-
-  useEffect(() => {
-    if (theme !== "system") {
-      applyTheme(theme);
-    }
   }, [theme]);
 
   const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
