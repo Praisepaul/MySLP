@@ -38,7 +38,7 @@ type MongoGlobal = typeof globalThis & {
 const globalMongo = globalThis as MongoGlobal;
 
 function createMongoClient(): MongoClient {
-  return new MongoClient(uri, mongoOptions);
+  return new MongoClient(uri as string, mongoOptions);
 }
 
 function getClientPromise(): Promise<MongoClient> {
