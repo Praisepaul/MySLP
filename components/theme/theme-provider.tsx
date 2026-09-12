@@ -34,22 +34,32 @@ function applyTheme(theme: Theme) {
   root.style.colorScheme = resolvedTheme;
 }
 
+function readStoredTheme(): Theme {
+  try {
+    const storedTheme = localStorage.getItem(STORAGE_KEY);
+    return storedTheme === "light" || storedTheme === "dark" || storedTheme === "system"
+      ? storedTheme
+      : "system";
+  } catch {
+    return "system";
+  }
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("system");
 
   const setTheme = useCallback((nextTheme: Theme) => {
     setThemeState(nextTheme);
-    localStorage.setItem(STORAGE_KEY, nextTheme);
+    try {
+      localStorage.setItem(STORAGE_KEY, nextTheme);
+    } catch {
+      // Theme still applies for the current session if storage is unavailable.
+    }
     applyTheme(nextTheme);
   }, []);
 
   useEffect(() => {
-    const storedTheme = localStorage.getItem(STORAGE_KEY);
-    const nextTheme: Theme =
-      storedTheme === "light" || storedTheme === "dark" || storedTheme === "system"
-        ? storedTheme
-        : "system";
-
+    const nextTheme = readStoredTheme();
     setThemeState(nextTheme);
     applyTheme(nextTheme);
 
@@ -61,6 +71,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
+
+  useEffect(() => {
+    if (theme !== "system") {
+      applyTheme(theme);
+    }
+  }, [theme]);
 
   const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
 
