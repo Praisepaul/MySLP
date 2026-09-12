@@ -1,6 +1,7 @@
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminAccountMenu } from "@/components/admin/account/admin-account-menu";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 interface AdminTopbarProps {
   onMenuClick?: () => void;
@@ -29,7 +30,10 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
         </div>
       </div>
 
-      <AdminAccountMenu />
+      <div className="flex items-center gap-1">
+        <ThemeToggle />
+        <AdminAccountMenu />
+      </div>
     </header>
   );
 }

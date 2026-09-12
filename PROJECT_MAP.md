@@ -5,7 +5,7 @@
 ## Product / trust model
 - MongoDB is authoritative for Ephatha appointments, booking state, persisted CMS settings, and realtime revisions.
 - `appointment_booking_locks` protects booking concurrency. Never bypass booking validation or locks.
-- Google Calendar is the external therapist-calendar/free-busy signal and event projection; MongoDB remains authoritative if Google reconciliation fails.
+- Google Calendar is the external therapist-calendar/free/busy signal and event projection; MongoDB remains authoritative if Google reconciliation fails.
 - `googleCalendarConnectionId` is the Mongo connection identifier (`therapist`); `googleCalendarId` is the Google API calendar identifier (`primary`). Never mix them.
 - Online appointments request Google Meet through Calendar `conferenceData`.
 - Calendar create/update/delete uses `sendUpdates: all`.
@@ -122,8 +122,20 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - `components/public/booking/booking-flow.tsx` orchestrates service → date/time → details → review → appointment creation.
 - `booking-date-time-picker.tsx` uses responsive date/time grids and timezone selection.
 - `components/public/layout/public-footer.tsx` exposes Privacy Policy, Terms of Service, Cookie Policy, and Data Deletion links.
-- Global `app/globals.css` provides focus-visible outlines, antialiasing, base colors and Tailwind/shadcn theme tokens.
+- `components/theme/theme-provider.tsx` provides the shared `light` / `dark` / `system` preference, persisted in local storage and synchronized with the OS preference when `system` is selected.
+- `components/theme/theme-toggle.tsx` provides the accessible three-state theme control used by public and admin navigation/login surfaces. On first use, it shows a short hint explaining that the control switches between Light, Dark, and System; the hint is dismissible and remembered in browser local storage.
+- `app/layout.tsx` initializes the saved/system theme before first paint to prevent a light/dark flash and wraps the application in `ThemeProvider`.
+- Global `app/globals.css` provides focus-visible outlines, antialiasing, base colors and Tailwind/shadcn theme tokens for both light and dark modes.
 - Phase 17 hardening added keyboard Escape handling, modal semantics, body-scroll locking and ≥44px touch targets to mobile navigation/account controls, password-policy hints, and `aria-current="step"` booking progress semantics.
+
+## Theme architecture
+- Theme selection is a presentation-layer concern only; it does not alter booking, appointment, authentication, MongoDB, Google Calendar, or API behavior.
+- Default preference is `system` when the user has not selected a preference.
+- Explicit `light`, `dark`, or `system` selection is persisted locally in the browser under `ephatha-theme`.
+- The root `.dark` class controls Tailwind/shadcn semantic color tokens; `color-scheme` is kept synchronized for native controls and browser UI.
+- System preference changes are followed live while `system` is selected.
+- Theme controls use 44px touch targets and are available on the public header, admin topbar, and admin login.
+- The first-use theme hint is browser-local only and uses `ephatha-theme-hint-seen`; it is not stored in MongoDB or sent to application APIs.
 
 ## Security controls
 1. `/admin/*` redirects unauthenticated users before private UI renders.
@@ -137,6 +149,7 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 9. Bearer-token appointment responses are `private, no-store`.
 10. `next.config.ts` provides MIME-sniffing, clickjacking, referrer, Permissions-Policy, CSP baseline, production HSTS and disables `X-Powered-By`.
 11. Public legal pages contain no admin-session dependency and are intended to be crawlable for Google OAuth brand/privacy verification.
+12. Theme preference is non-sensitive browser-local UI state; it is not stored in MongoDB or sent to application APIs.
 
 ## Legal / privacy architecture
 - `app/privacy-policy/page.tsx` — formal Privacy Policy covering personal data, GDPR-style rights, retention/deletion, international transfers, security, minors, and Google Calendar user data.
@@ -164,6 +177,7 @@ Modules: `lib/calendar/google-calendar-config.ts`, `google-calendar-types.ts`, `
 - Phase 19 production deployment: **Planned** — Vercel-only hosting is the current deployment architecture; MongoDB Atlas remains authoritative; Google Cloud OAuth remains the calendar integration. Cloudflare is optional only if a custom domain is introduced later.
 - Phase 20 handover: **Planned**.
 - Legal/privacy policy milestone: **Implemented on feature branch `feature/legal-policies`; requires owner review of legal identity/contact details and local/preview QA before merge to `main`.**
+- Theme milestone: **Implemented on feature branch `feature/dark-mode`; first-use theme discovery hint added; requires owner review and manual light/dark/system QA before merge to `main`.**
 
 ## Environment configuration
 Admin: `GRACE_ADMIN_USERNAME`, `GRACE_ADMIN_PASSWORD_HASH`, `GRACE_ADMIN_SESSION_SECRET`.
