@@ -6,7 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -20,6 +20,8 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
+
+const themeSubscribers = new Set<() => void>();
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
@@ -45,21 +47,38 @@ function readStoredTheme(): Theme {
   }
 }
 
+function subscribeToThemeStore(callback: () => void) {
+  themeSubscribers.add(callback);
+  return () => themeSubscribers.delete(callback);
+}
+
+function getThemeSnapshot() {
+  return readStoredTheme();
+}
+
+function getThemeServerSnapshot(): Theme {
+  return "system";
+}
+
+function notifyThemeSubscribers() {
+  themeSubscribers.forEach((callback) => callback());
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const theme = useSyncExternalStore(
+    subscribeToThemeStore,
+    getThemeSnapshot,
+    getThemeServerSnapshot,
+  );
 
   const setTheme = useCallback((nextTheme: Theme) => {
-    setThemeState(nextTheme);
     try {
       localStorage.setItem(STORAGE_KEY, nextTheme);
     } catch {
       // Theme still applies for the current session if storage is unavailable.
     }
+    notifyThemeSubscribers();
     applyTheme(nextTheme);
-  }, []);
-
-  useEffect(() => {
-    setThemeState(readStoredTheme());
   }, []);
 
   useEffect(() => {
