@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LanguageSelector } from "./language-selector";
 import { MobileNav } from "./mobile-nav";
 import { PublicNav } from "./public-nav";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export function PublicHeader() {
   return (
@@ -11,9 +12,10 @@ export function PublicHeader() {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground">E</span>
           <span className="text-sm font-semibold tracking-tight sm:text-base">Ephatha</span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <PublicNav />
           <div className="hidden md:block"><LanguageSelector /></div>
+          <ThemeToggle />
           <Link href="/book" className="hidden rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:inline-flex">Book a session</Link>
           <MobileNav />
         </div>
