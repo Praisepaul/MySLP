@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,10 +24,21 @@ export const metadata: Metadata = {
     "Professional speech and language services with simple online booking.",
 };
 
+const themeInitScript = `(() => {
+  try {
+    const stored = localStorage.getItem("ephatha-theme");
+    const theme = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+    const dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  } catch {}
+})();`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
@@ -34,11 +46,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           name="google-site-verification"
           content="BDdAw9W8S7KcWFmzVLCFwqalxjHJXY0sjMb5kbQQMhU"
         />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-full bg-background text-foreground">
-        {children}
-        <Analytics />
-        <SpeedInsights />
+        <ThemeProvider>
+          {children}
+          <Analytics />
+          <SpeedInsights />
+        </ThemeProvider>
       </body>
     </html>
   );
