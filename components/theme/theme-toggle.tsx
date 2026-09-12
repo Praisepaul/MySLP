@@ -1,7 +1,7 @@
 "use client";
 
 import { Monitor, Moon, Sun, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useTheme, type Theme } from "./theme-provider";
 import { Button } from "@/components/ui/button";
 
@@ -18,27 +18,50 @@ const labels: Record<Theme, string> = {
 };
 
 const THEME_HINT_STORAGE_KEY = "ephatha-theme-hint-seen";
+const THEME_HINT_EVENT = "ephatha-theme-hint-change";
+
+function readThemeHintVisibility() {
+  try {
+    return window.localStorage.getItem(THEME_HINT_STORAGE_KEY) !== "true";
+  } catch {
+    return true;
+  }
+}
+
+function subscribeToThemeHint(callback: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === THEME_HINT_STORAGE_KEY) callback();
+  };
+  const handleHintChange = () => callback();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(THEME_HINT_EVENT, handleHintChange);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(THEME_HINT_EVENT, handleHintChange);
+  };
+}
+
+function getThemeHintServerSnapshot() {
+  return false;
+}
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [showHint, setShowHint] = useState(false);
-
-  useEffect(() => {
-    try {
-      setShowHint(window.localStorage.getItem(THEME_HINT_STORAGE_KEY) !== "true");
-    } catch {
-      setShowHint(true);
-    }
-  }, []);
+  const showHint = useSyncExternalStore(
+    subscribeToThemeHint,
+    readThemeHintVisibility,
+    getThemeHintServerSnapshot,
+  );
 
   const dismissHint = () => {
-    setShowHint(false);
-
     try {
       window.localStorage.setItem(THEME_HINT_STORAGE_KEY, "true");
     } catch {
       // Theme switching should remain available even if localStorage is unavailable.
     }
+    window.dispatchEvent(new Event(THEME_HINT_EVENT));
   };
 
   const handleThemeChange = () => {
